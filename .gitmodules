@@ -4,3 +4,6 @@
 [submodule "docs"]
 	path = docs
 	url = git@github.com:markdown-viewer/docs.git
+[submodule "obsidian/release"]
+	path = obsidian/release
+	url = git@github.com:markdown-viewer/obsidian.git
