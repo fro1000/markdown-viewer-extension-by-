@@ -36,13 +36,14 @@ export function convertPluginResultToHTML(
     // Strategy: design width on the wrapper <div>; <img> stays fully auto, bounded by
     // max-width:100% and (in print) max-height. Both <img> dims auto so the CSS replaced-element
     // sizing algorithm preserves aspect ratio when max-height clamps tall diagrams.
+    // Alignment (centered by default, left with .diagram-layout-left) is controlled by
+    // container-level CSS classes, so no inline margin/text-align is set here.
     const displayWidth = Math.round((width || 0) / 4);
     const wrapperStyle = displayWidth > 0
-      ? `width: ${displayWidth}px; max-width: 100%; margin: 20px auto; text-align: center;`
-      : 'margin: 20px auto; text-align: center;';
+      ? `width: ${displayWidth}px; max-width: 100%;`
+      : '';
     const imgStyle = 'max-width: 100%; height: auto;';
 
-    // Data attributes for DOM diff matching - mark as rendered
     const dataAttrs = sourceHash 
       ? `data-source-hash="${sourceHash}" data-plugin-type="${pluginType}" data-plugin-rendered="true"` 
       : '';
@@ -72,12 +73,15 @@ export function convertPluginResultToHTML(
  * @param renderResult - Unified render result from plugin.renderToCommon()
  * @param pluginType - Plugin type for alt text
  * @param sourceHash - Content hash for DOM diff matching
+ * @param imgAttrs - Authored <img> attributes (width/height/alt) captured from
+ *   the markdown source; they override the renderer-derived display size
  * @returns DOM element, or null for empty results
  */
 export function createPluginResultElement(
   renderResult: UnifiedRenderResult,
   pluginType = 'diagram',
-  sourceHash?: string
+  sourceHash?: string,
+  imgAttrs?: { width?: string | null; height?: string | null; alt?: string | null } | null
 ): HTMLElement | null {
   if (renderResult.type === 'empty') {
     return null;
@@ -94,7 +98,9 @@ export function createPluginResultElement(
   if (renderResult.type === 'image') {
     const { base64, width } = renderResult.content;
     const { inline } = renderResult.display;
-    // Renderer outputs the PNG at 4x for retina sharpness; design display width is 1/4 of intrinsic.
+    // Renderer outputs the PNG at 4x for retina sharpness; design display width
+    // is 1/4 of intrinsic. An authored width/height attribute from the source
+    // markdown wins over this derived size (standard <img> semantics).
     const displayWidth = Math.round((width || 0) / 4);
 
     const img = document.createElement('img');
@@ -102,12 +108,19 @@ export function createPluginResultElement(
     // This bypasses Firefox Bug 2019834 where data: URI images inserted via
     // outerHTML/innerHTML fail to load on first encounter (clean cache).
     img.src = `data:image/png;base64,${base64}`;
-    img.alt = `${pluginType} diagram`;
+    img.alt = (imgAttrs && imgAttrs.alt) || `${pluginType} diagram`;
     img.style.cssText = 'max-width: 100%; height: auto;';
+
+    if (imgAttrs && imgAttrs.width) {
+      img.setAttribute('width', imgAttrs.width);
+    }
+    if (imgAttrs && imgAttrs.height) {
+      img.setAttribute('height', imgAttrs.height);
+    }
 
     if (inline) {
       img.className = 'diagram-inline';
-      if (displayWidth > 0) {
+      if (!(imgAttrs && imgAttrs.width) && displayWidth > 0) {
         img.style.width = `${displayWidth}px`;
       }
       if (sourceHash) {
@@ -120,9 +133,12 @@ export function createPluginResultElement(
 
     const wrapper = document.createElement('div');
     wrapper.className = 'diagram-block';
+    // Alignment (centered by default, left with .diagram-layout-left) is
+    // controlled by container-level CSS classes, so no inline margin/text-align
+    // is set here.
     wrapper.style.cssText = displayWidth > 0
-      ? `width: ${displayWidth}px; max-width: 100%; margin: 20px auto; text-align: center;`
-      : 'margin: 20px auto; text-align: center;';
+      ? `width: ${displayWidth}px; max-width: 100%;`
+      : '';
     if (sourceHash) {
       wrapper.dataset.sourceHash = sourceHash;
       wrapper.dataset.pluginType = pluginType;
@@ -170,11 +186,14 @@ export function replacePlaceholderWithImage(id: string, result: PluginRenderResu
       }
     };
 
-    // Use createElement-based DOM construction instead of outerHTML string
-    // assignment. This avoids Firefox Bug 2019834 where data: URI images
-    // inserted via HTML parsing (outerHTML/innerHTML) fail to load on first
-    // encounter with a clean browser cache.
-    const element = createPluginResultElement(renderResult, pluginType, sourceHash);
+    // Authored <img> attributes (width/height/alt) were stored on the
+    // placeholder by createPlaceholderElement; re-apply them to the rendered
+    // image so standard <img> semantics survive the plugin takeover.
+    const element = createPluginResultElement(renderResult, pluginType, sourceHash, {
+      width: placeholder.dataset.width || null,
+      height: placeholder.dataset.height || null,
+      alt: placeholder.dataset.alt || null,
+    });
     if (element) {
       placeholder.replaceWith(element);
     } else {

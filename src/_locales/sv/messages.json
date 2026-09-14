@@ -19,6 +19,30 @@
     "message": "Okänt fel",
     "description": "Fallback when error message missing"
   },
+  "book_export_docx": {
+    "message": "Exportera bok till DOCX",
+    "description": "Menu item: export the whole GitBook book as a single DOCX"
+  },
+  "book_export_epub": {
+    "message": "Exportera bok till EPUB",
+    "description": "Menu item: export the whole GitBook book as a single EPUB ebook"
+  },
+  "book_export_failed": {
+    "message": "Kunde inte exportera boken: {0}",
+    "description": "Alert shown when whole-book export fails, with error detail"
+  },
+  "book_export_pdf": {
+    "message": "Exportera bok till PDF",
+    "description": "Menu item: export the whole GitBook book as a PDF via print"
+  },
+  "book_export_skipped_pages": {
+    "message": "{0} sida/sidor hoppades över",
+    "description": "Alert shown after export when some pages could not be fetched"
+  },
+  "book_export_title": {
+    "message": "Exportera bok",
+    "description": "Tooltip for the whole-book export dropdown button in the SUMMARY panel header"
+  },
   "cache_clear": {
     "message": "Rensa cache",
     "description": "Clear cache button"
@@ -175,6 +199,10 @@
     "message": "Copy as PNG",
     "description": "Context menu item for copying a diagram as PNG"
   },
+  "copy_table": {
+    "message": "Kopiera tabell",
+    "description": "Context menu item for copying a rendered table as spreadsheet cells"
+  },
   "delete": {
     "message": "Delete",
     "description": "Delete button text"
@@ -203,6 +231,10 @@
     "message": "Exportera till DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_epub": {
+    "message": "Exportera till EPUB",
+    "description": "Export menu item for exporting the current document to EPUB"
+  },
   "export_menu_export_html": {
     "message": "Exportera till HTML",
     "description": "Export menu item for exporting to HTML"
@@ -220,7 +252,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown till perfekt Word — Mermaid, PlantUML, Vega, drawio, infografik, Graphviz, LaTeX, kodmarkering, lokal bearbetning.",
+    "message": "Förhandsgranska Markdown lokalt och exportera välformaterade Word-dokument med diagram, formler och kodmarkering.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -511,6 +543,10 @@
     "message": "Spara bild som…",
     "description": "Context menu item for saving an image"
   },
+  "save_table_as_xlsx": {
+    "message": "Spara som Excel (.xlsx)",
+    "description": "Context menu item for saving a rendered table as an Excel (.xlsx) file"
+  },
   "search_case_sensitive": {
     "message": "Skiftlägeskänslig",
     "description": "Toggle case sensitive search"
@@ -536,7 +572,7 @@
     "description": "Label for auto refresh checkbox"
   },
   "settings_auto_refresh_interval": {
-    "message": "Uppdateringsintervall:",
+    "message": "Uppdateringsintervall",
     "description": "Label for refresh interval selector"
   },
   "settings_auto_refresh_note": {
@@ -550,6 +586,18 @@
   "settings_cache_title": {
     "message": "Cache",
     "description": "Title for cache settings section"
+  },
+  "settings_diagram_layout": {
+    "message": "Diagramlayout",
+    "description": "Label for diagram alignment selector"
+  },
+  "settings_diagram_layout_center": {
+    "message": "Centrerad",
+    "description": "Option for centered diagrams"
+  },
+  "settings_diagram_layout_left": {
+    "message": "Vänster",
+    "description": "Option for left-aligned diagrams"
   },
   "settings_docx_emoji_style": {
     "message": "Emoji-stil",
@@ -572,11 +620,11 @@
     "description": "Option for Windows emoji style"
   },
   "settings_docx_hr_display": {
-    "message": "DOCX: Hantering av horisontella linjer",
+    "message": "Hantering av horisontella linjer",
     "description": "Label for DOCX horizontal rule handling selector"
   },
   "settings_docx_hr_display_hide": {
-    "message": "Dölj (tom rad)",
+    "message": "Dölj",
     "description": "Option to hide horizontal rules in DOCX"
   },
   "settings_docx_hr_display_line": {
@@ -611,16 +659,12 @@
     "message": "4 tecken",
     "description": "Option: 4 characters first-line indent"
   },
-  "settings_first_line_indent_note": {
-    "message": "Antal tecken för indrag av första raden i brödtextstycken. Gäller endast för teman som stöder indrag.",
-    "description": "Helper note for first-line indent option"
-  },
   "settings_first_line_indent_off": {
     "message": "Inget indrag",
     "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
-    "message": "Frontmatter-visning:",
+    "message": "Frontmatter-visning",
     "description": "Label for frontmatter display mode selector"
   },
   "settings_frontmatter_hide": {
@@ -643,6 +687,18 @@
     "message": "Tilläggsinställningar",
     "description": "Heading for settings section"
   },
+  "settings_image_layout": {
+    "message": "Bildlayout",
+    "description": "Label for standalone image alignment selector"
+  },
+  "settings_image_layout_center": {
+    "message": "Centrerad",
+    "description": "Option for centered standalone images"
+  },
+  "settings_image_layout_left": {
+    "message": "Vänster",
+    "description": "Option for left-aligned standalone images"
+  },
   "settings_interface_title": {
     "message": "Gränssnittsinställningar",
     "description": "Heading for interface settings section"
@@ -660,7 +716,7 @@
     "description": "Toast when language is changed successfully"
   },
   "settings_max_cache_label": {
-    "message": "Maximalt antal cachade objekt:",
+    "message": "Maximalt antal cachade objekt",
     "description": "Label for max cache input"
   },
   "settings_reset_btn": {
@@ -806,6 +862,14 @@
   "workspace_desc": {
     "message": "Öppna en lokal katalog för att bläddra bland och förhandsgranska filer som stöds.",
     "description": "Workspace landing page description"
+  },
+  "workspace_history_back": {
+    "message": "Tillbaka",
+    "description": "Tooltip for the workspace preview history back button"
+  },
+  "workspace_history_forward": {
+    "message": "Framåt",
+    "description": "Tooltip for the workspace preview history forward button"
   },
   "workspace_open": {
     "message": "Öppna arbetsyta",

@@ -29,7 +29,6 @@ import remarkCjkFriendly from 'remark-cjk-friendly';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import remarkGemoji from 'remark-gemoji';
-import remarkSuperSub from '../plugins/remark-super-sub';
 import remarkGithubAlerts from '../plugins/remark-github-alerts';
 import { buildDocxFootnoteMarkdown } from '../core/footnote-model.ts';
 import { visit } from 'unist-util-visit';
@@ -41,6 +40,7 @@ import { escapePipesInTableCodeSpans } from '../utils/markdown-table-code';
 import { getPluginForNode, convertNodeToDOCX } from '../plugins/index';
 import type { PluginRenderer } from '../types/plugin';
 import type { DocumentService } from '../types/platform';
+import { normalizeSetting, DEFAULT_SETTINGS } from '../config/settings.generated';
 import type {
   DOCXThemeStyles,
   DOCXNamedParagraphStyle,
@@ -65,7 +65,7 @@ import { createInlineConverter, type InlineConverter, type InlineNode } from './
 import { ResourceEmbedder } from './resource-embedder';
 
 // Re-export for external use
-export { convertPluginResultToDOCX } from './docx-image-utils';
+export { convertPluginResultToDOCX, withBlockImageAlignment } from './docx-image-utils';
 
 /**
  * DOCX helpers for plugins
@@ -78,6 +78,7 @@ interface DOCXHelpers {
   AlignmentType: typeof AlignmentType;
   convertInchesToTwip: typeof convertInchesToTwip;
   themeStyles: DOCXThemeStyles | null;
+  diagramLayout: 'left' | 'center';
 }
 
 /**
@@ -102,6 +103,8 @@ class DocxExporter {
   private frontmatterDisplay: FrontmatterDisplay = 'hide';
   private tableMergeEmpty = true;  // Default: enabled
   private tableLayout: 'left' | 'center' | 'center-full-width' = 'center';  // Default: center
+  private imageLayout: 'left' | 'center' = DEFAULT_SETTINGS.imageLayout;
+  private diagramLayout: 'left' | 'center' = 'center';
   private firstLineIndent = 0;  // Default: no indent (0-4 characters)
   
   // Converters (initialized in exportToDocx)
@@ -183,6 +186,8 @@ class DocxExporter {
       renderer: rendererAdapter,
       emojiStyle: this.docxEmojiStyle,
       linkColor: this.themeStyles.linkColor,
+      imageLayout: this.imageLayout,
+      diagramLayout: this.diagramLayout,
     });
 
     // Create other converters
@@ -223,31 +228,39 @@ class DocxExporter {
       try {
         const settings = globalThis.platform?.settings;
         if (settings) {
-          const [hrDisplay, emojiStyle, frontmatterDisplay, tableMergeEmpty, tableLayout, firstLineIndent] = await Promise.all([
+          const [hrDisplay, emojiStyle, frontmatterDisplay, tableMergeEmpty, tableLayout, imageLayout, diagramLayout, firstLineIndent] = await Promise.all([
             settings.get('docxHrDisplay'),
             settings.get('docxEmojiStyle'),
             settings.get('frontmatterDisplay'),
             settings.get('tableMergeEmpty'),
             settings.get('tableLayout'),
+            settings.get('imageLayout'),
+            settings.get('diagramLayout'),
             settings.get('firstLineIndent'),
           ]);
-          this.docxHrDisplay = hrDisplay;
-          this.docxEmojiStyle = emojiStyle;
-          this.frontmatterDisplay = frontmatterDisplay;
-          this.tableMergeEmpty = tableMergeEmpty;
-          this.tableLayout = tableLayout || 'center';
+          this.docxHrDisplay = normalizeSetting('docxHrDisplay', hrDisplay);
+          this.docxEmojiStyle = normalizeSetting('docxEmojiStyle', emojiStyle);
+          this.frontmatterDisplay = normalizeSetting('frontmatterDisplay', frontmatterDisplay);
+          this.tableMergeEmpty = normalizeSetting('tableMergeEmpty', tableMergeEmpty);
+          this.tableLayout = normalizeSetting('tableLayout', tableLayout);
+          this.imageLayout = normalizeSetting('imageLayout', imageLayout);
+          this.diagramLayout = normalizeSetting('diagramLayout', diagramLayout);
           this.firstLineIndent = typeof firstLineIndent === 'number' ? firstLineIndent : 0;
         } else {
-          this.docxHrDisplay = 'hide';
-          this.frontmatterDisplay = 'hide';
-          this.tableMergeEmpty = true;
-          this.tableLayout = 'center';
+          this.docxHrDisplay = DEFAULT_SETTINGS.docxHrDisplay;
+          this.frontmatterDisplay = DEFAULT_SETTINGS.frontmatterDisplay;
+          this.tableMergeEmpty = DEFAULT_SETTINGS.tableMergeEmpty;
+          this.tableLayout = DEFAULT_SETTINGS.tableLayout;
+          this.imageLayout = DEFAULT_SETTINGS.imageLayout;
+          this.diagramLayout = DEFAULT_SETTINGS.diagramLayout;
         }
       } catch {
-        this.docxHrDisplay = 'hide';
-        this.frontmatterDisplay = 'hide';
-        this.tableMergeEmpty = true;
-        this.tableLayout = 'center';
+        this.docxHrDisplay = DEFAULT_SETTINGS.docxHrDisplay;
+        this.frontmatterDisplay = DEFAULT_SETTINGS.frontmatterDisplay;
+        this.tableMergeEmpty = DEFAULT_SETTINGS.tableMergeEmpty;
+        this.tableLayout = DEFAULT_SETTINGS.tableLayout;
+        this.imageLayout = DEFAULT_SETTINGS.imageLayout;
+        this.diagramLayout = DEFAULT_SETTINGS.diagramLayout;
       }
 
       const selectedThemeId = await themeManager.loadSelectedTheme();
@@ -291,13 +304,20 @@ class DocxExporter {
         paragraphStyles,
       };
 
-      // Calculate firstLineIndent twips for numbering (list) indent integration
-      let numberingExtraIndentTwips = 0;
+      // List indent step = 2em of the body font, mirroring the web preview's
+      // `ul/ol { padding-left: 2em }` — constant per-level step.
+      const bodySizeHalfPt = this.themeStyles.default.run.size;
+      const bodySizePt = bodySizeHalfPt / 2;
+      const listIndentStepTwips = Math.round(2 * bodySizePt * 20);
+
+      // When the body uses a first-line indent, shift the list block as a
+      // WHOLE by the same amount (mirror of the web preview's top-level
+      // `margin-left` on ul/ol): the marker then starts at the body's
+      // first-line position instead of hanging to its left. Adding the same
+      // offset to every level keeps the per-level step constant.
+      let listBlockOffsetTwips = 0;
       if (this.themeStyles?.firstLineIndentEnabled && this.firstLineIndent > 0) {
-        const bodySizeHalfPt = this.themeStyles.default.run.size;
-        const bodySizePt = bodySizeHalfPt / 2;
-        const twipsPerEm = bodySizePt * 20;
-        numberingExtraIndentTwips = Math.round(this.firstLineIndent * twipsPerEm);
+        listBlockOffsetTwips = Math.round(this.firstLineIndent * bodySizePt * 20);
       }
 
       const doc = new Document({
@@ -310,20 +330,20 @@ class DocxExporter {
           config: [
             {
               reference: 'default-ordered-list',
-              levels: createNumberingLevels(numberingExtraIndentTwips),
+              levels: createNumberingLevels(listIndentStepTwips, listBlockOffsetTwips),
             },
             {
               reference: 'default-bullet-list',
-              levels: createBulletNumberingLevels(numberingExtraIndentTwips),
+              levels: createBulletNumberingLevels(listIndentStepTwips, listBlockOffsetTwips),
             },
-            // Blockquote-internal lists: no first-line indent
+            // Blockquote-internal lists do not follow the body first-line indent
             {
               reference: 'blockquote-ordered-list',
-              levels: createNumberingLevels(0),
+              levels: createNumberingLevels(listIndentStepTwips),
             },
             {
               reference: 'blockquote-bullet-list',
-              levels: createBulletNumberingLevels(0),
+              levels: createBulletNumberingLevels(listIndentStepTwips),
             },
           ],
         },
@@ -489,7 +509,6 @@ class DocxExporter {
       .use(remarkGfm, { singleTilde: false })
       .use(remarkMath)
       .use(remarkGemoji)
-      .use(remarkSuperSub)
       .use(remarkGithubAlerts);  // GitHub-style alert syntax
 
     const ast = processor.parse(escapePipesInTableCodeSpans(footnoteAwareMarkdown));
@@ -522,6 +541,23 @@ class DocxExporter {
     
     const text = (child.value || '').trim();
     return /^\[toc\]$/i.test(text);
+  }
+
+  /**
+   * Check if a node is a [pagebreak] marker
+   * Detects paragraphs containing only [pagebreak] — used by whole-book
+   * export so every chapter starts on a new page (independent of the
+   * user's docxHrDisplay setting).
+   */
+  private isPageBreakMarker(node: DOCXASTNode): boolean {
+    if (node.type !== 'paragraph') return false;
+    if (!node.children || node.children.length !== 1) return false;
+
+    const child = node.children[0];
+    if (child.type !== 'text') return false;
+
+    const text = (child.value || '').trim();
+    return /^\[pagebreak\]$/i.test(text);
   }
 
   /**
@@ -621,6 +657,58 @@ class DocxExporter {
     let lastNodeType: string | null = null;
     this.listInstanceCounter = 0;
 
+    const isContainerNode = (type: string | null | undefined): type is 'table' | 'blockquote' =>
+      type === 'table' || type === 'blockquote';
+
+    const getLegacyBodyBoundaryGaps = (): { beforeContainer: number; afterContainer: number } => {
+      const bodySpacing = this.themeStyles?.default.paragraph?.spacing;
+      const bodyFontTwips = (this.themeStyles?.default.run.size ?? 28) * 10;
+      const bodyLineTwips = bodySpacing?.line ?? bodyFontTwips;
+      const bodyBefore = bodySpacing?.before ?? 0;
+      const bodyAfter = bodySpacing?.after ?? 0;
+
+      // Old docDefaults used Word's AUTO line rule (line = 240 * multiplier)
+      // plus compensateParagraphSpacing(). The visible air around a body
+      // paragraph therefore came from:
+      //   - trailing gap before a following non-paragraph object:
+      //       oldAfter + extra, where extra = lineMultiple - 240
+      //   - leading gap before the NEXT body paragraph:
+      //       oldBefore
+      //
+      // We now use an EXACT line height derived from the same body metrics,
+      // so that incidental gap disappeared. Recreate just the old boundary
+      // values explicitly at text/container edges.
+      const lineMultiple = bodyFontTwips > 0 ? (bodyLineTwips / bodyFontTwips) : 1;
+      const legacyAutoLine = Math.round(lineMultiple * 240);
+      const legacyExtra = Math.max(0, legacyAutoLine - 240);
+      const totalBudget = bodyBefore + bodyAfter;
+      const legacyBefore = Math.max(0, Math.round((totalBudget + legacyExtra) / 2));
+      const legacyAfter = Math.max(0, Math.round((totalBudget - legacyExtra) / 2));
+
+      return {
+        beforeContainer: legacyAfter + legacyExtra,
+        afterContainer: legacyBefore,
+      };
+    };
+
+    const bodyBoundaryGaps = getLegacyBodyBoundaryGaps();
+
+    const getContainerGap = (type: 'table' | 'blockquote', side: 'before' | 'after'): number => {
+      const spacing = type === 'table'
+        ? this.themeStyles?.blockSpacing?.table
+        : this.themeStyles?.blockSpacing?.blockquote;
+      return spacing?.[side] ?? 120;
+    };
+
+    const pushBlockSpacer = (gapTwips: number): void => {
+      if (gapTwips <= 0) return;
+      elements.push(new Paragraph({
+        text: '',
+        spacing: { before: 0, after: gapTwips, line: 1, lineRule: 'exact' },
+        alignment: AlignmentType.LEFT,
+      }));
+    };
+
     // Add frontmatter at the beginning if present and not hidden
     const frontmatterElements = await this.convertFrontmatterToDocx();
     elements.push(...frontmatterElements);
@@ -630,7 +718,9 @@ class DocxExporter {
 
     if (!ast.children) return elements;
 
-    for (const node of ast.children) {
+    for (let index = 0; index < ast.children.length; index++) {
+      const node = ast.children[index];
+      const nextNodeType = ast.children[index + 1]?.type ?? null;
       // Check if this is a [toc] marker - insert TableOfContents only when detected
       if (this.isTocMarker(node)) {
         // Insert a table of contents at this position
@@ -648,6 +738,21 @@ class DocxExporter {
         continue;
       }
 
+      // [pagebreak] marker: start a new page (whole-book chapter break)
+      if (this.isPageBreakMarker(node)) {
+        // Use pageBreakBefore instead of an explicit PageBreak run to avoid
+        // an extra blank page when the break lands at the top of a page
+        // (same approach as convertThematicBreak's pageBreak mode).
+        elements.push(new Paragraph({
+          pageBreakBefore: true,
+          children: [new TextRun({ text: '', size: 1 })],
+          spacing: { before: 0, after: 0, line: 1, lineRule: 'exact' },
+          alignment: AlignmentType.LEFT,
+        }));
+        lastNodeType = 'pagebreak';
+        continue;
+      }
+
       if (this.docxHrDisplay === 'line' && node.type === 'thematicBreak' && lastNodeType === 'thematicBreak') {
         elements.push(new Paragraph({
           text: '',
@@ -656,37 +761,19 @@ class DocxExporter {
         }));
       }
 
-      if (node.type === 'table' && lastNodeType === 'table') {
-        const tableGap = this.themeStyles?.blockSpacing?.table;
-        const tableAfter = tableGap?.after ?? 120;
-        elements.push(new Paragraph({
-          text: '',
-          spacing: { before: tableAfter, after: tableAfter, line: 240 },
-        }));
-      }
-
-      if (node.type === 'blockquote' && lastNodeType === 'blockquote') {
-        const blockquoteGap = this.themeStyles?.blockSpacing?.blockquote;
-        const blockquoteAfter = blockquoteGap?.after ?? 120;
-        elements.push(new Paragraph({
-          text: '',
-          spacing: { before: blockquoteAfter, after: blockquoteAfter, line: 240 },
-        }));
-      }
-
-      // Handle cross-type gap: both table and blockquote produce DOCX Table objects,
-      // so consecutive different types need a spacer paragraph between them.
-      if ((node.type === 'blockquote' && lastNodeType === 'table') ||
-          (node.type === 'table' && lastNodeType === 'blockquote')) {
-        // Use the previous element's "after" spacing
-        const prevGap = lastNodeType === 'table'
-          ? this.themeStyles?.blockSpacing?.table
-          : this.themeStyles?.blockSpacing?.blockquote;
-        const prevAfter = prevGap?.after ?? 120;
-        elements.push(new Paragraph({
-          text: '',
-          spacing: { before: prevAfter, after: prevAfter, line: 240 },
-        }));
+      // Under the old auto-line-height model, body paragraphs happened to leave
+      // visible air around table/blockquote containers via inherited line
+      // leading. With the document-wide exact baseline that incidental gap is
+      // gone, so container boundaries must be expressed explicitly.
+      if (isContainerNode(node.type)) {
+        if (isContainerNode(lastNodeType)) {
+          pushBlockSpacer(Math.max(
+            getContainerGap(lastNodeType, 'after'),
+            getContainerGap(node.type, 'before')
+          ));
+        } else if (lastNodeType && lastNodeType !== 'pagebreak' && lastNodeType !== 'toc') {
+          pushBlockSpacer(bodyBoundaryGaps.beforeContainer);
+        }
       }
 
       const converted = await this.convertNode(node);
@@ -697,6 +784,11 @@ class DocxExporter {
           elements.push(converted);
         }
       }
+
+      if (isContainerNode(node.type) && nextNodeType && !isContainerNode(nextNodeType) && nextNodeType !== 'pagebreak') {
+        pushBlockSpacer(bodyBoundaryGaps.afterContainer);
+      }
+
       lastNodeType = node.type;
     }
 
@@ -711,7 +803,8 @@ class DocxExporter {
   ): Promise<FileChild | FileChild[] | null> {
     const docxHelpers: DOCXHelpers = {
       Paragraph, TextRun, ImageRun, AlignmentType, convertInchesToTwip,
-      themeStyles: this.themeStyles
+      themeStyles: this.themeStyles,
+      diagramLayout: this.diagramLayout,
     };
 
     const pluginRenderer: PluginRenderer = this.renderer
@@ -821,7 +914,13 @@ class DocxExporter {
       indentTwips = Math.round(this.firstLineIndent * twipsPerEm);
     }
 
-    const astChildren = (node.children || []) as unknown as { type?: string }[];
+    const astChildren = (node.children || []) as unknown as { type?: string; value?: string }[];
+    const significantChildren = astChildren.filter((child) => {
+      if (child.type !== 'text') {
+        return true;
+      }
+      return typeof child.value === 'string' && child.value.trim().length > 0;
+    });
 
     // Find break positions and split AST children into segments
     const breakIndices: number[] = [];
@@ -837,10 +936,28 @@ class DocxExporter {
         astChildren as unknown as InlineNode[],
         parentStyle
       );
+      const isSingleImageParagraph = significantChildren.length === 1 && this.inlineConverter!.isBlockImageNode(significantChildren[0] as InlineNode);
+      const isSingleDiagramParagraph = significantChildren.length === 1 && this.inlineConverter!.isBlockDiagramNode(significantChildren[0] as InlineNode);
+      const paragraphAlignment = isSingleDiagramParagraph
+        ? (this.diagramLayout === 'left' ? AlignmentType.LEFT : AlignmentType.CENTER)
+        : isSingleImageParagraph
+          ? (this.imageLayout === 'center' ? AlignmentType.CENTER : AlignmentType.LEFT)
+          : undefined;
+      // Image/diagram paragraphs (and any paragraph whose runs contain an
+      // inline picture) must self-declare an AUTO line rule: they would
+      // otherwise inherit the docDefaults baseline, and a fixed baseline
+      // (lineRule exact, e.g. 公文 28pt global spacing from the theme layout)
+      // clips/overlaps tall inline images. Auto lets the line expand to the
+      // image height in Word/WPS.
+      const containsImageRun = children.some((child) => child instanceof ImageRun);
       return new Paragraph({
         children: children.length > 0 ? children : undefined,
         text: children.length === 0 ? '' : undefined,
+        ...(paragraphAlignment ? { alignment: paragraphAlignment } : {}),
         ...(indentTwips > 0 ? { indent: { firstLine: indentTwips } } : {}),
+        ...(containsImageRun
+          ? { spacing: { line: 240, lineRule: 'auto' as const } }
+          : {}),
       });
     }
 
@@ -862,8 +979,13 @@ class DocxExporter {
           children: children.length > 0 ? children : undefined,
           text: children.length === 0 ? '' : undefined,
           ...(indentTwips > 0 ? { indent: { firstLine: indentTwips } } : {}),
-          // Suppress spacing between sub-segments; last segment keeps default spacing
+          // Suppress spacing between sub-segments; last segment keeps default spacing.
+          // Segments carrying inline images additionally self-declare an auto
+          // line rule so a fixed docDefaults baseline cannot clip the picture.
           ...(isLast ? {} : { spacing: { after: 0 } }),
+          ...(children.some((child) => child instanceof ImageRun)
+            ? { spacing: { line: 240, lineRule: 'auto' as const } }
+            : {}),
         }));
       }
       segmentStart = breakIdx + 1;
@@ -880,6 +1002,9 @@ class DocxExporter {
         children: children.length > 0 ? children : undefined,
         text: children.length === 0 ? '' : undefined,
         ...(indentTwips > 0 ? { indent: { firstLine: indentTwips } } : {}),
+        ...(children.some((child) => child instanceof ImageRun)
+          ? { spacing: { line: 240, lineRule: 'auto' as const } }
+          : {}),
       }));
     }
 
@@ -929,7 +1054,7 @@ class DocxExporter {
     });
   }
 
-  private convertThematicBreak(): Paragraph {
+  private convertThematicBreak(): Paragraph | null {
     if (this.docxHrDisplay === 'pageBreak') {
       return new Paragraph({
         // Use pageBreakBefore instead of an explicit PageBreak run.
@@ -943,9 +1068,8 @@ class DocxExporter {
     }
 
     if (this.docxHrDisplay === 'hide') {
-      return new Paragraph({
-        text: '',
-      });
+      // Completely omit the separator: no empty paragraph, no blank line.
+      return null;
     }
 
     return new Paragraph({
@@ -998,6 +1122,18 @@ class DocxExporter {
     return values.includes(normalized as any) ? (normalized as any) : undefined;
   }
 
+  /**
+   * Document-wide defaults (docDefaults). These become the global baseline
+   * that every paragraph WITHOUT an explicit style/spacing inherits — i.e.
+   * the "global line spacing" of the document, driven by the active theme's
+   * layout scheme (body.lineHeight / body.lineRule / body.fixedLineHeight).
+   *
+   * Named styles (headings, tables, lists, blockquotes, code, ...) declare
+   * their own spacing on top of this baseline, and image/diagram paragraphs
+   * always self-declare an auto line rule (see convertParagraph and
+   * convertPluginResultToDOCX) so fixed-height baselines (lineRule exact,
+   * e.g. 公文 28pt) never clip or overlap tall inline charts/images.
+   */
   private toDocumentDefaults(defaults: DOCXThemeStyles['default']): IDocumentDefaultsOptions {
     const paragraph: IParagraphStylePropertiesOptions | undefined = defaults.paragraph
       ? {

@@ -5,6 +5,7 @@ import { platform } from '../webview/index';
 import { getViewerMainRuntime, startViewer } from '../webview/viewer-main';
 import { initializeViewerBase } from '../../../src/core/viewer/viewer-bootstrap';
 import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
+import Localization from '../../../src/utils/localization';
 import { applyCodeViewPresentation } from '../../../src/utils/code-preview';
 import { createWorkspaceEmbedBridge } from './workspace-embed-bridge';
 import { arrowLeft, arrowRight } from './file-icons';
@@ -17,7 +18,9 @@ import type {
   ViewerIframeMessage,
   ViewerOpenDocumentMessage,
   ViewerUpdateContentMessage,
+  ViewerExportRequestMessage,
 } from '../../../src/integration/iframe-viewer-host';
+import type { ViewerExportFormat } from '../../../src/core/viewer/viewer-host';
 
 type DocumentMessage = ViewerOpenDocumentMessage | ViewerUpdateContentMessage;
 
@@ -81,23 +84,14 @@ async function waitForViewerMainRuntime(): Promise<NonNullable<ReturnType<typeof
 }
 
 // Inject embed-mode CSS when loaded with ?embed=1 (from element.ts custom element iframe).
-// This hides the toolbar and shifts the TOC panel up so it fills the full iframe height.
-// In workspace-preview context (no ?embed=1 param) nothing is injected and the native
-// toolbar + TOC layout is preserved.
+// In embed mode (from element.ts custom element iframe) the layout is the
+// shared .mv-embed embedded mode: no toolbar, no card, TOC docked in the
+// container. The classes below opt in; all the actual rules live in the
+// shared stylesheet so every embed/panel looks the same.
 if (EMBED_MODE) {
   // Mark body so that internal TOC manager skips its saved-state restoration.
   document.body.dataset.mvEmbed = '1';
-
-  const style = document.createElement('style');
-  style.id = 'embed-mode-styles';
-  style.textContent = [
-    '#page-header { display: none !important; }',
-    '#table-of-contents { top: 0 !important; height: 100vh !important; }',
-    'body.toc-hidden #markdown-wrapper { margin-left: 0 !important; margin-right: 0 !important; }',
-    'body:not(.toc-hidden) #markdown-wrapper { margin-left: 280px !important; margin-right: 0 !important; }',
-    'body.toc-position-right:not(.toc-hidden) #markdown-wrapper { margin-left: 0 !important; margin-right: 280px !important; }',
-  ].join('\n');
-  (document.head || document.documentElement).appendChild(style);
+  document.body.classList.add('mv-embed');
 }
 
 // ── Restore pending content after Slidev→normal file switch reload ──────
@@ -252,8 +246,10 @@ function ensureWorkspaceHistoryInline(): {
       return button;
     };
 
-    const backButton = createButton('workspace-history-back', 'Back', arrowLeft, -1);
-    const forwardButton = createButton('workspace-history-forward', 'Forward', arrowRight, 1);
+    const backTitle = Localization.translate('workspace_history_back') || 'Back';
+    const forwardTitle = Localization.translate('workspace_history_forward') || 'Forward';
+    const backButton = createButton('workspace-history-back', backTitle, arrowLeft, -1);
+    const forwardButton = createButton('workspace-history-forward', forwardTitle, arrowRight, 1);
     wrapper.append(backButton, forwardButton);
     fileNameSpan.insertAdjacentElement('beforebegin', wrapper);
   }
@@ -324,6 +320,16 @@ async function handleDocumentMessage(message: DocumentMessage, mode: 'open' | 'u
 
   if (mode === 'open') {
     applyOpenDocumentMetadata(message as ViewerOpenDocumentMessage);
+
+    // Keep the latest open-document message in sessionStorage so that any
+    // later reload of this embed page (e.g. a popup locale change, which
+    // viewer-main answers with window.location.reload()) can restore the
+    // current document via restorePendingOpenDocument. Content reaches this
+    // page only through postMessage, so a bare reload would otherwise leave
+    // the preview blank.
+    try {
+      sessionStorage.setItem('mv:pendingOpen', JSON.stringify(message));
+    } catch { /* storage blocked — reload restore unavailable */ }
   }
 
   const { runtime, wasInitialized } = await ensureViewerInitialized(content);
@@ -360,6 +366,37 @@ async function handleDocumentMessage(message: DocumentMessage, mode: 'open' | 'u
   parentBridge.notifyViewerRendered();
 }
 
+const EXPORT_FORMATS: readonly ViewerExportFormat[] = ['docx', 'epub', 'html', 'pdf', 'save'];
+
+async function handleExportRequest(message: ViewerExportRequestMessage): Promise<void> {
+  const { requestId, format, filename, title } = message;
+  const postResult = (ok: boolean, error?: string): void => {
+    window.parent.postMessage({
+      type: 'EXPORT_RESULT',
+      requestId,
+      ok,
+      error,
+    }, '*');
+  };
+
+  const normalizedFormat = typeof format === 'string'
+    ? (format.toLowerCase() === 'docs' ? 'docx' : format.toLowerCase())
+    : '';
+  if (!EXPORT_FORMATS.includes(normalizedFormat as ViewerExportFormat)) {
+    postResult(false, `Unsupported export format: ${String(format)}`);
+    return;
+  }
+
+  try {
+    const runtime = await waitForViewerMainRuntime();
+    await runtime.exportDocument(normalizedFormat as ViewerExportFormat, { filename, title });
+    postResult(true);
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    postResult(false, errMsg);
+  }
+}
+
 function handleViewerMessage(data: ViewerIframeMessage): void {
   switch (data.type) {
     case 'OPEN_DOCUMENT':
@@ -373,6 +410,9 @@ function handleViewerMessage(data: ViewerIframeMessage): void {
       return;
     case 'SYNC_HOST_NAVIGATION':
       parentBridge.syncHostNavigation(data);
+      return;
+    case 'EXPORT_REQUEST':
+      void handleExportRequest(data);
       return;
     default:
       return;

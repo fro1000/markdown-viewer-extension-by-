@@ -347,9 +347,9 @@ describe('JsonCanvasRenderer', () => {
         ]
       });
 
-      const match = svg.match(/width="(\d+)"/);
-      assert.ok(match, 'Should have width attribute');
-      const width = parseInt(match![1], 10);
+      const match = svg.match(/<svg[^>]*\bwidth="([\d.]+)"/);
+      assert.ok(match, 'Should have width attribute on the <svg> element');
+      const width = parseFloat(match![1]);
       // Node-only width would be 490 + padding*2 = 570. The curve should increase bounds beyond that.
       assert.ok(width > 620, `Expected SVG width to include curve (avoid clipping), got width=${width}`);
     });

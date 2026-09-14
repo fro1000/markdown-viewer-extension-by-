@@ -78,13 +78,13 @@ tags: [markdown, test, demo]
 
 ### 1.4 上标和下标
 
-**上标语法** 使用 `^text^` 包围：
-- 数学表达：x^2^ + y^2^ = z^2^
-- 化学式：Ca^2+^, Fe^3+^
+**上标语法** 使用 `<sup>` 标签：
+- 数学表达：x<sup>2</sup> + y<sup>2</sup> = z<sup>2</sup>
+- 化学式：Ca<sup>2+</sup>, Fe<sup>3+</sup>
 
-**下标语法** 使用 `~text~` 包围：
-- 化学式：H~2~O, CO~2~, H~2~SO~4~
-- 数学下标：a~1~, a~2~, ..., a~n~
+**下标语法** 使用 `<sub>` 标签：
+- 化学式：H<sub>2</sub>O, CO<sub>2</sub>, H<sub>2</sub>SO<sub>4</sub>
+- 数学下标：a<sub>1</sub>, a<sub>2</sub>, ..., a<sub>n</sub>
 
 ### 1.5 特殊字符和转义
 
@@ -189,6 +189,7 @@ Markdown Viewer 是一个强大的浏览器扩展[^mve]。
 ![Random Photo](https://picsum.photos/400/300)
 
 **本地图片（相对路径）：**
+
 ![Icon](../icons/icon128.png)
 
 **Base64 Data URI 图片：**

@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert';
 
 import { HtmlPlugin } from '../src/plugins/html-plugin.ts';
@@ -40,14 +40,30 @@ class FakeContainerElement {
   }
 }
 
-globalThis.document = {
-  createElement(tagName) {
-    assert.strictEqual(tagName, 'div');
-    return new FakeContainerElement();
-  }
-};
+// HtmlPlugin reads the global `document`, so this file installs its own fake.
+// HtmlPlugin reads the global `document`, so it needs a fake installed while
+// its tests run. The fake is scoped to the suite (before/after) instead of the
+// module top level so the aggregate test/all.test.js import phase — where
+// mathjax etc. may probe `document` — and sibling suites (markdown-processor's
+// xml DOM) are never exposed to it.
+let previousDocument;
 
 describe('HtmlPlugin', () => {
+  before(() => {
+    previousDocument = globalThis.document;
+    globalThis.document = {
+      createElement(tagName) {
+        assert.strictEqual(tagName, 'div');
+        return new FakeContainerElement();
+      }
+    };
+  });
+
+  after(() => {
+    globalThis.document = previousDocument;
+    delete globalThis.platform;
+  });
+
   it('should inline local image src without rewriting html links', async () => {
     const plugin = new HtmlPlugin();
     const calls = [];

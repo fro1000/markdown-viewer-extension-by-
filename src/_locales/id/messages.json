@@ -19,6 +19,30 @@
     "message": "Kesalahan tidak diketahui",
     "description": "Fallback when error message missing"
   },
+  "book_export_docx": {
+    "message": "Ekspor buku ke DOCX",
+    "description": "Menu item: export the whole GitBook book as a single DOCX"
+  },
+  "book_export_epub": {
+    "message": "Ekspor buku ke EPUB",
+    "description": "Menu item: export the whole GitBook book as a single EPUB ebook"
+  },
+  "book_export_failed": {
+    "message": "Gagal mengekspor buku: {0}",
+    "description": "Alert shown when whole-book export fails, with error detail"
+  },
+  "book_export_pdf": {
+    "message": "Ekspor buku ke PDF",
+    "description": "Menu item: export the whole GitBook book as a PDF via print"
+  },
+  "book_export_skipped_pages": {
+    "message": "{0} halaman dilewati",
+    "description": "Alert shown after export when some pages could not be fetched"
+  },
+  "book_export_title": {
+    "message": "Ekspor buku",
+    "description": "Tooltip for the whole-book export dropdown button in the SUMMARY panel header"
+  },
   "cache_clear": {
     "message": "Hapus cache",
     "description": "Clear cache button"
@@ -175,6 +199,10 @@
     "message": "Copy as PNG",
     "description": "Context menu item for copying a diagram as PNG"
   },
+  "copy_table": {
+    "message": "Salin tabel",
+    "description": "Context menu item for copying a rendered table as spreadsheet cells"
+  },
   "delete": {
     "message": "Delete",
     "description": "Delete button text"
@@ -203,6 +231,10 @@
     "message": "Ekspor ke DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_epub": {
+    "message": "Ekspor ke EPUB",
+    "description": "Export menu item for exporting the current document to EPUB"
+  },
   "export_menu_export_html": {
     "message": "Ekspor ke HTML",
     "description": "Export menu item for exporting to HTML"
@@ -220,7 +252,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown ke Word sempurna — Mermaid, PlantUML, Vega, drawio, infografis, Graphviz, LaTeX, penyorotan kode, pemrosesan lokal.",
+    "message": "Pratinjau Markdown secara lokal dan ekspor dokumen Word rapi dengan diagram, rumus, dan sorotan kode.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -511,6 +543,10 @@
     "message": "Simpan gambar sebagai…",
     "description": "Context menu item for saving an image"
   },
+  "save_table_as_xlsx": {
+    "message": "Simpan sebagai Excel (.xlsx)",
+    "description": "Context menu item for saving a rendered table as an Excel (.xlsx) file"
+  },
   "search_case_sensitive": {
     "message": "Cocokkan huruf besar/kecil",
     "description": "Toggle case sensitive search"
@@ -536,7 +572,7 @@
     "description": "Label for auto refresh checkbox"
   },
   "settings_auto_refresh_interval": {
-    "message": "Interval penyegaran:",
+    "message": "Interval penyegaran",
     "description": "Label for refresh interval selector"
   },
   "settings_auto_refresh_note": {
@@ -550,6 +586,18 @@
   "settings_cache_title": {
     "message": "Cache",
     "description": "Title for cache settings section"
+  },
+  "settings_diagram_layout": {
+    "message": "Tata letak diagram",
+    "description": "Label for diagram alignment selector"
+  },
+  "settings_diagram_layout_center": {
+    "message": "Tengah",
+    "description": "Option for centered diagrams"
+  },
+  "settings_diagram_layout_left": {
+    "message": "Kiri",
+    "description": "Option for left-aligned diagrams"
   },
   "settings_docx_emoji_style": {
     "message": "Gaya Emoji",
@@ -572,11 +620,11 @@
     "description": "Option for Windows emoji style"
   },
   "settings_docx_hr_display": {
-    "message": "DOCX: Penanganan garis horizontal",
+    "message": "Penanganan garis horizontal",
     "description": "Label for DOCX horizontal rule handling selector"
   },
   "settings_docx_hr_display_hide": {
-    "message": "Sembunyikan (baris kosong)",
+    "message": "Sembunyikan",
     "description": "Option to hide horizontal rules in DOCX"
   },
   "settings_docx_hr_display_line": {
@@ -611,16 +659,12 @@
     "message": "4 karakter",
     "description": "Option: 4 characters first-line indent"
   },
-  "settings_first_line_indent_note": {
-    "message": "Jumlah karakter untuk mengindentasi baris pertama paragraf isi. Hanya berlaku untuk tema yang mendukung indentasi.",
-    "description": "Helper note for first-line indent option"
-  },
   "settings_first_line_indent_off": {
     "message": "Tanpa indentasi",
     "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
-    "message": "Tampilan Frontmatter:",
+    "message": "Tampilan Frontmatter",
     "description": "Label for frontmatter display mode selector"
   },
   "settings_frontmatter_hide": {
@@ -643,6 +687,18 @@
     "message": "Pengaturan ekstensi",
     "description": "Judul bagian pengaturan"
   },
+  "settings_image_layout": {
+    "message": "Tata letak gambar",
+    "description": "Label for standalone image alignment selector"
+  },
+  "settings_image_layout_center": {
+    "message": "Tengah",
+    "description": "Option for centered standalone images"
+  },
+  "settings_image_layout_left": {
+    "message": "Kiri",
+    "description": "Option for left-aligned standalone images"
+  },
   "settings_interface_title": {
     "message": "Pengaturan antarmuka",
     "description": "Heading for interface settings section"
@@ -660,7 +716,7 @@
     "description": "Toast when language is changed successfully"
   },
   "settings_max_cache_label": {
-    "message": "Maksimal item di-cache:",
+    "message": "Maksimal item di-cache",
     "description": "Label for max cache input"
   },
   "settings_reset_btn": {
@@ -724,7 +780,7 @@
     "description": "Message shown when theme is changed"
   },
   "settings_theme_label": {
-    "message": "Pilih Tema:",
+    "message": "Pilih Tema",
     "description": "Label for theme selector"
   },
   "share": {
@@ -806,6 +862,14 @@
   "workspace_desc": {
     "message": "Buka direktori lokal untuk menelusuri dan melihat pratinjau file yang didukung.",
     "description": "Workspace landing page description"
+  },
+  "workspace_history_back": {
+    "message": "Kembali",
+    "description": "Tooltip for the workspace preview history back button"
+  },
+  "workspace_history_forward": {
+    "message": "Maju",
+    "description": "Tooltip for the workspace preview history forward button"
   },
   "workspace_open": {
     "message": "Buka ruang kerja",

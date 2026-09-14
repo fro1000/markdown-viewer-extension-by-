@@ -484,6 +484,14 @@ body.toc-position-right #table-of-contents.hidden {
   color: var(--color-text-primary);
 }
 
+/* Export whole-book button group (right-aligned in the SUMMARY panel header) */
+.gitbook-sidebar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* GitBook sidebar body — flex child in page-content row */
 #gitbook-sidebar-body {
   order: 3;
@@ -568,6 +576,23 @@ body.sidebar-resizing {
 
 #gitbook-panel li {
   margin: 0;
+}
+
+#gitbook-panel .gitbook-nav-heading {
+  margin-top: 10px;
+}
+
+#gitbook-panel .gitbook-nav-heading:first-child {
+  margin-top: 2px;
+}
+
+#gitbook-panel .gitbook-nav-heading-text {
+  color: var(--color-text-primary);
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 4px 8px;
 }
 
 #gitbook-panel a {
@@ -683,17 +708,34 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
 }
 
 
+/* Page container carries the card chrome (background/shadow). The content
+   root itself stays pure content so Web / HTML / EPUB consume the exact same
+   content styles — the card is a page-level concept. The gutter is a modest
+   20px so the card's inner whitespace matches the panel layouts (VS Code,
+   mobile) instead of dominating narrow windows.
+   The card background follows the theme's page color (--md-page-bg is set on
+   :root by the theme stylesheet whenever the theme defines a page
+   background): with a tinted theme the whole sheet — including the 20px
+   gutter between the content strip and the card edge — keeps the themed
+   background instead of showing the frame surface (pure white in light
+   mode). Themes without a page background fall back to the frame surface,
+   which matches the card of the default theme. Print and .mv-embed override
+   this rule (transparent) further down. */
 #markdown-page {
   max-width: 1060px;
   margin: 0 auto;
+  background: var(--md-page-bg, var(--color-bg-surface, #ffffff));
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 #markdown-content {
-  background: var(--color-bg-surface);
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-  margin: 0 auto;
-  padding: 40px;
-  box-sizing: border-box;
+  /* Pure content root: no page chrome here. Font metrics are pinned because
+     <markdown-viewer> inline mode renders inside a HOST page, whose own
+     element rules (e.g. p { font-size: 13px }) would otherwise leak into
+     the viewer typography. */
+  font-size: 16px;
 }
 
 #markdown-content:empty {
@@ -705,6 +747,85 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
   overflow: hidden;
 }
 
+#markdown-content p,
+.markdown-viewer-content p {
+  font-size: inherit;
+}
+
+/* ── Embedded container mode ─────────────────────────────────────────────
+   Shared by <markdown-viewer> elements, the iframe embed and editor panels
+   (VS Code / Obsidian / Mobile). The content fills the host container
+   edge-to-edge: no toolbar, no card, no 1060px centering. A TOC (if any)
+   docks inside the container; panels add .mv-panel to drop it entirely.
+   Platforms only add the class(es) + map their theme variables — no per-
+   platform style sheets. */
+.mv-embed #page-header,
+.mv-embed #toolbar {
+  display: none !important;
+}
+
+.mv-embed #page-shell {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  min-height: 0;
+}
+
+.mv-embed #page-content {
+  position: relative;
+  min-height: 0;
+}
+
+.mv-embed #markdown-wrapper {
+  height: 100%;
+  max-height: none;
+}
+
+/* TOC visible → content keeps the 280px offset; hidden → flush.
+   Matches both body.toc-hidden (iframe embed) and reader-root.toc-hidden
+   (<markdown-viewer> inline mode). */
+.mv-embed.toc-hidden #markdown-wrapper,
+.mv-embed .toc-hidden #markdown-wrapper {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.mv-embed #markdown-page {
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.mv-embed #markdown-content {
+  padding: 20px;
+}
+
+.mv-embed #table-of-contents {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+}
+
+.mv-embed #toc-overlay {
+  position: absolute;
+}
+
+/* Panel variant: no TOC at all, content always flush */
+.mv-embed.mv-panel #table-of-contents,
+.mv-embed.mv-panel #toc-overlay {
+  display: none !important;
+}
+
+.mv-embed.mv-panel #markdown-wrapper {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
 #markdown-content h1,
 #markdown-content h2,
 #markdown-content h3,
@@ -713,6 +834,26 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
 #markdown-content h6 {
   scroll-margin-top: 12px;
   position: relative;
+}
+
+/* Inline-mode host isolation: <markdown-viewer> renders inside a host page,
+   whose own element rules (e.g. h1 { margin: 0 }) would otherwise override
+   the viewer baselines. Pin the block typography here — values match the
+   UA defaults the web modes already rely on. */
+#markdown-content h1,
+.markdown-viewer-content h1,
+#markdown-content h2,
+.markdown-viewer-content h2,
+#markdown-content h3,
+.markdown-viewer-content h3,
+#markdown-content h4,
+.markdown-viewer-content h4,
+#markdown-content h5,
+.markdown-viewer-content h5,
+#markdown-content h6,
+.markdown-viewer-content h6 {
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
 }
 
 /* Hover-revealed "#" anchor link next to each heading (Laravel-docs style). */
@@ -771,11 +912,18 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
 #markdown-content pre {
   border-radius: 6px;
   padding: 13px;
-  overflow: auto;
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-all;
   position: relative;
+  /* No overflow:auto here. In EPUB readers a scroll container's overflowed
+     content is clipped at page breaks instead of flowing to the next page,
+     leaving the second page of a split code block empty. pre-wrap +
+     break-all already prevent horizontal overflow, so the block flows like
+     regular content in every environment. Pinned explicitly because host
+     pages hosting <markdown-viewer> inline mode often set overflow:auto on
+     pre themselves. */
+  overflow: visible;
 }
 
 #markdown-content pre code {
@@ -900,7 +1048,16 @@ html[data-code-view] #markdown-content pre code .mv-code-line-content:empty::bef
 
 #markdown-content ul,
 #markdown-content ol {
-  padding-left: 20px;
+  /* Top-level marker gutter: ~1em holds the widest common marker ("1.", "10.")
+     while keeping the marker flush with the text start. Nested levels step
+     2em below (marker aligns with the parent item's text). */
+  padding-left: 1em;
+}
+
+#markdown-content li ul,
+#markdown-content li ol {
+  /* Nested levels keep the constant 2em step (GitHub convention). */
+  padding-left: 2em;
 }
 
 /* Ordered list style by level */
@@ -922,6 +1079,54 @@ html[data-code-view] #markdown-content pre code .mv-code-line-content:empty::bef
 #markdown-content img {
   max-width: 100%;
   height: auto;
+}
+
+#markdown-content svg {
+  max-width: 100%;
+}
+
+/* Standalone images are block-level in BOTH layout modes; only the centering
+   margin differs. Without an image-layout class they fall back to left.
+   Both content-root forms are covered (id root + .markdown-viewer-content
+   root used by <markdown-viewer> elements). */
+#markdown-content p > img:only-child,
+.markdown-viewer-content p > img:only-child,
+#markdown-content p > a:only-child > img:only-child,
+.markdown-viewer-content p > a:only-child > img:only-child {
+  display: block;
+}
+
+#markdown-content.image-layout-center p > img:only-child,
+#markdown-content.image-layout-center p > a:only-child > img:only-child,
+.markdown-viewer-content.image-layout-center p > img:only-child,
+.markdown-viewer-content.image-layout-center p > a:only-child > img:only-child {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#markdown-content.image-layout-left p > img:only-child,
+#markdown-content.image-layout-left p > a:only-child > img:only-child,
+.markdown-viewer-content.image-layout-left p > img:only-child,
+.markdown-viewer-content.image-layout-left p > a:only-child > img:only-child {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Diagram blocks (Mermaid, Vega, PlantUML, etc.): centered by default.
+   With .diagram-layout-left on the container, they become left-aligned. */
+#markdown-content .diagram-block,
+.markdown-viewer-content .diagram-block {
+  margin: 20px auto;
+  text-align: center;
+  max-width: 100%;
+}
+
+#markdown-content.diagram-layout-left .diagram-block,
+#markdown-content .markdown-viewer-content.diagram-layout-left .diagram-block,
+.markdown-viewer-content.diagram-layout-left .diagram-block {
+  margin-left: 0;
+  margin-right: auto;
+  text-align: left;
 }
 
 #markdown-content .diagram-block svg {
@@ -981,10 +1186,6 @@ html[data-code-view] #markdown-content pre code .mv-code-line-content:empty::bef
 }
 
 @media (max-width: 768px) {
-  #markdown-content {
-    padding: 20px;
-  }
-
   #toolbar {
     padding: 0 10px;
   }
@@ -1156,9 +1357,17 @@ html[data-code-view] #markdown-content pre code .mv-code-line-content:empty::bef
     margin-right: 0 !important;
   }
 
-  /* Optimize content area for printing */
+  /* Optimize content area for printing: the shared screen rule gives
+     #markdown-page a 40px card padding + shadow + surface background. In
+     print the @page margin already spaces the content, so strip the card
+     chrome — otherwise every PDF gets an extra 40px gutter and the printed
+     shadow/background (printBackground: true) looks like a box on the page. */
   #markdown-page {
     margin: 0 auto !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    max-width: none !important;
     overflow: visible !important;
   }
 
@@ -1182,6 +1391,14 @@ html[data-code-view] #markdown-content pre code .mv-code-line-content:empty::bef
   /* Hide processing indicators when printing */
   .processing-indicator,
   .async-placeholder {
+    display: none !important;
+  }
+
+  /* Interactive-only heading anchors (hover-revealed "#" links): never print them.
+     If print starts while the pointer rests on a heading (e.g. the export menu item
+     that covered it was just removed), the hover reveal would otherwise be captured
+     as a stray "#" in the PDF at that heading. */
+  #markdown-content .heading-anchor {
     display: none !important;
   }
 

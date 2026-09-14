@@ -19,6 +19,30 @@
     "message": "Lỗi không xác định",
     "description": "Fallback when error message missing"
   },
+  "book_export_docx": {
+    "message": "Xuất sách sang DOCX",
+    "description": "Menu item: export the whole GitBook book as a single DOCX"
+  },
+  "book_export_epub": {
+    "message": "Xuất sách sang EPUB",
+    "description": "Menu item: export the whole GitBook book as a single EPUB ebook"
+  },
+  "book_export_failed": {
+    "message": "Xuất sách thất bại: {0}",
+    "description": "Alert shown when whole-book export fails, with error detail"
+  },
+  "book_export_pdf": {
+    "message": "Xuất sách sang PDF",
+    "description": "Menu item: export the whole GitBook book as a PDF via print"
+  },
+  "book_export_skipped_pages": {
+    "message": "Đã bỏ qua {0} trang",
+    "description": "Alert shown after export when some pages could not be fetched"
+  },
+  "book_export_title": {
+    "message": "Xuất sách",
+    "description": "Tooltip for the whole-book export dropdown button in the SUMMARY panel header"
+  },
   "cache_clear": {
     "message": "Xóa bộ nhớ đệm",
     "description": "Clear cache button"
@@ -175,6 +199,10 @@
     "message": "Copy as PNG",
     "description": "Context menu item for copying a diagram as PNG"
   },
+  "copy_table": {
+    "message": "Sao chép bảng",
+    "description": "Context menu item for copying a rendered table as spreadsheet cells"
+  },
   "delete": {
     "message": "Delete",
     "description": "Delete button text"
@@ -203,6 +231,10 @@
     "message": "Xuất sang DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_epub": {
+    "message": "Xuất sang EPUB",
+    "description": "Export menu item for exporting the current document to EPUB"
+  },
   "export_menu_export_html": {
     "message": "Xuất sang HTML",
     "description": "Export menu item for exporting to HTML"
@@ -220,7 +252,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown sang Word hoàn hảo — Mermaid, PlantUML, Vega, drawio, infographic, Graphviz, LaTeX, tô sáng mã, xử lý cục bộ.",
+    "message": "Xem trước Markdown cục bộ và xuất tài liệu Word chỉn chu với sơ đồ, công thức chỉnh sửa được và tô sáng mã.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -511,6 +543,10 @@
     "message": "Lưu hình ảnh dưới dạng…",
     "description": "Context menu item for saving an image"
   },
+  "save_table_as_xlsx": {
+    "message": "Lưu dưới dạng Excel (.xlsx)",
+    "description": "Context menu item for saving a rendered table as an Excel (.xlsx) file"
+  },
   "search_case_sensitive": {
     "message": "Phân biệt chữ hoa/thường",
     "description": "Toggle case sensitive search"
@@ -536,7 +572,7 @@
     "description": "Label for auto refresh checkbox"
   },
   "settings_auto_refresh_interval": {
-    "message": "Khoảng thời gian làm mới:",
+    "message": "Khoảng thời gian làm mới",
     "description": "Label for refresh interval selector"
   },
   "settings_auto_refresh_note": {
@@ -550,6 +586,18 @@
   "settings_cache_title": {
     "message": "Bộ nhớ đệm",
     "description": "Title for cache settings section"
+  },
+  "settings_diagram_layout": {
+    "message": "Bố cục sơ đồ",
+    "description": "Label for diagram alignment selector"
+  },
+  "settings_diagram_layout_center": {
+    "message": "Giữa",
+    "description": "Option for centered diagrams"
+  },
+  "settings_diagram_layout_left": {
+    "message": "Trái",
+    "description": "Option for left-aligned diagrams"
   },
   "settings_docx_emoji_style": {
     "message": "Kiểu emoji",
@@ -572,11 +620,11 @@
     "description": "Option for Windows emoji style"
   },
   "settings_docx_hr_display": {
-    "message": "DOCX: Xử lý đường kẻ ngang",
+    "message": "Xử lý đường kẻ ngang",
     "description": "Label for DOCX horizontal rule handling selector"
   },
   "settings_docx_hr_display_hide": {
-    "message": "Ẩn (dòng trống)",
+    "message": "Ẩn",
     "description": "Option to hide horizontal rules in DOCX"
   },
   "settings_docx_hr_display_line": {
@@ -611,16 +659,12 @@
     "message": "4 ký tự",
     "description": "Option: 4 characters first-line indent"
   },
-  "settings_first_line_indent_note": {
-    "message": "Số ký tự để thụt lề dòng đầu của các đoạn văn bản. Chỉ có hiệu lực với các chủ đề hỗ trợ thụt lề.",
-    "description": "Helper note for first-line indent option"
-  },
   "settings_first_line_indent_off": {
     "message": "Không thụt lề",
     "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
-    "message": "Hiển thị Frontmatter:",
+    "message": "Hiển thị Frontmatter",
     "description": "Label for frontmatter display mode selector"
   },
   "settings_frontmatter_hide": {
@@ -643,6 +687,18 @@
     "message": "Cài đặt tiện ích mở rộng",
     "description": "Tiêu đề phần cài đặt"
   },
+  "settings_image_layout": {
+    "message": "Bố cục hình ảnh",
+    "description": "Label for standalone image alignment selector"
+  },
+  "settings_image_layout_center": {
+    "message": "Giữa",
+    "description": "Option for centered standalone images"
+  },
+  "settings_image_layout_left": {
+    "message": "Trái",
+    "description": "Option for left-aligned standalone images"
+  },
   "settings_interface_title": {
     "message": "Cài đặt giao diện",
     "description": "Heading for interface settings section"
@@ -660,7 +716,7 @@
     "description": "Toast when language is changed successfully"
   },
   "settings_max_cache_label": {
-    "message": "Số mục tối đa trong bộ nhớ đệm:",
+    "message": "Số mục tối đa trong bộ nhớ đệm",
     "description": "Label for max cache input"
   },
   "settings_reset_btn": {
@@ -724,7 +780,7 @@
     "description": "Message shown when theme is changed"
   },
   "settings_theme_label": {
-    "message": "Chọn Giao diện:",
+    "message": "Chọn Giao diện",
     "description": "Label for theme selector"
   },
   "share": {
@@ -806,6 +862,14 @@
   "workspace_desc": {
     "message": "Mở thư mục cục bộ để duyệt và xem trước các tệp được hỗ trợ.",
     "description": "Workspace landing page description"
+  },
+  "workspace_history_back": {
+    "message": "Quay lại",
+    "description": "Tooltip for the workspace preview history back button"
+  },
+  "workspace_history_forward": {
+    "message": "Tiếp theo",
+    "description": "Tooltip for the workspace preview history forward button"
   },
   "workspace_open": {
     "message": "Mở không gian làm việc",

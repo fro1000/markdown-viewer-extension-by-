@@ -19,9 +19,11 @@ describe('document-utils', () => {
     globalThis.document = createDocumentStub();
   });
 
-  it('should prefer embedded workspace file path over filename-only URL', () => {
-    document.documentElement.dataset.viewerFilename = 'demo.slides.md';
-    document.documentElement.dataset.viewerFilePath = 'demo/demo.slides.md';
+  it('should embed a directory-qualified viewer filename as file URL', () => {
+    // Workspace file paths are tracked separately (dataset.viewerWorkspaceFilePath
+    // in viewer-main); getCurrentDocumentUrl embeds whatever filename was set,
+    // including subdirectory-qualified names.
+    document.documentElement.dataset.viewerFilename = 'demo/demo.slides.md';
 
     assert.strictEqual(getCurrentDocumentUrl(), 'file:///demo/demo.slides.md');
   });

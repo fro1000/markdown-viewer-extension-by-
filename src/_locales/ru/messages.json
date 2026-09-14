@@ -19,6 +19,30 @@
     "message": "Неизвестная ошибка",
     "description": "Резервный текст"
   },
+  "book_export_docx": {
+    "message": "Экспорт книги в DOCX",
+    "description": "Menu item: export the whole GitBook book as a single DOCX"
+  },
+  "book_export_epub": {
+    "message": "Экспорт книги в EPUB",
+    "description": "Menu item: export the whole GitBook book as a single EPUB ebook"
+  },
+  "book_export_failed": {
+    "message": "Не удалось экспортировать книгу: {0}",
+    "description": "Alert shown when whole-book export fails, with error detail"
+  },
+  "book_export_pdf": {
+    "message": "Экспорт книги в PDF",
+    "description": "Menu item: export the whole GitBook book as a PDF via print"
+  },
+  "book_export_skipped_pages": {
+    "message": "Пропущено страниц: {0}",
+    "description": "Alert shown after export when some pages could not be fetched"
+  },
+  "book_export_title": {
+    "message": "Экспорт книги",
+    "description": "Tooltip for the whole-book export dropdown button in the SUMMARY panel header"
+  },
   "cache_clear": {
     "message": "Очистить кэш",
     "description": "Кнопка очистки"
@@ -175,6 +199,10 @@
     "message": "Copy as PNG",
     "description": "Context menu item for copying a diagram as PNG"
   },
+  "copy_table": {
+    "message": "Копировать таблицу",
+    "description": "Context menu item for copying a rendered table as spreadsheet cells"
+  },
   "delete": {
     "message": "Удалить",
     "description": "Delete button text"
@@ -203,6 +231,10 @@
     "message": "Экспортировать в DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_epub": {
+    "message": "Экспорт в EPUB",
+    "description": "Export menu item for exporting the current document to EPUB"
+  },
   "export_menu_export_html": {
     "message": "Экспортировать в HTML",
     "description": "Export menu item for exporting to HTML"
@@ -220,7 +252,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown в идеальный Word — Mermaid, PlantUML, Vega, drawio, инфографика, Graphviz, LaTeX, подсветка кода, локальная обработка.",
+    "message": "Просматривайте Markdown локально и экспортируйте аккуратные документы Word с диаграммами, формулами и кодом.",
     "description": "Описание расширения в Chrome Web Store"
   },
   "extensionName": {
@@ -511,6 +543,10 @@
     "message": "Сохранить изображение как…",
     "description": "Context menu item for saving an image"
   },
+  "save_table_as_xlsx": {
+    "message": "Сохранить как Excel (.xlsx)",
+    "description": "Context menu item for saving a rendered table as an Excel (.xlsx) file"
+  },
   "search_case_sensitive": {
     "message": "С учётом регистра",
     "description": "Toggle case sensitive search"
@@ -536,7 +572,7 @@
     "description": "Label for auto refresh checkbox"
   },
   "settings_auto_refresh_interval": {
-    "message": "Интервал обновления:",
+    "message": "Интервал обновления",
     "description": "Label for refresh interval selector"
   },
   "settings_auto_refresh_note": {
@@ -550,6 +586,18 @@
   "settings_cache_title": {
     "message": "Кэш",
     "description": "Title for cache settings section"
+  },
+  "settings_diagram_layout": {
+    "message": "Расположение диаграмм",
+    "description": "Label for diagram alignment selector"
+  },
+  "settings_diagram_layout_center": {
+    "message": "По центру",
+    "description": "Option for centered diagrams"
+  },
+  "settings_diagram_layout_left": {
+    "message": "Слева",
+    "description": "Option for left-aligned diagrams"
   },
   "settings_docx_emoji_style": {
     "message": "Стиль эмодзи",
@@ -572,11 +620,11 @@
     "description": "Option for Windows emoji style"
   },
   "settings_docx_hr_display": {
-    "message": "DOCX: Обработка горизонтальных линий",
+    "message": "Обработка горизонтальных линий",
     "description": "Label for DOCX horizontal rule handling selector"
   },
   "settings_docx_hr_display_hide": {
-    "message": "Скрыть (пустая строка)",
+    "message": "Скрыть",
     "description": "Option to hide horizontal rules in DOCX"
   },
   "settings_docx_hr_display_line": {
@@ -611,16 +659,12 @@
     "message": "4 символа",
     "description": "Option: 4 characters first-line indent"
   },
-  "settings_first_line_indent_note": {
-    "message": "Количество символов для отступа первой строки абзацев основного текста. Действует только для тем, поддерживающих отступ.",
-    "description": "Helper note for first-line indent option"
-  },
   "settings_first_line_indent_off": {
     "message": "Без отступа",
     "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
-    "message": "Отображение Frontmatter:",
+    "message": "Отображение Frontmatter",
     "description": "Label for frontmatter display mode selector"
   },
   "settings_frontmatter_hide": {
@@ -643,6 +687,18 @@
     "message": "Настройки расширения",
     "description": "Заголовок раздела настроек"
   },
+  "settings_image_layout": {
+    "message": "Расположение изображений",
+    "description": "Label for standalone image alignment selector"
+  },
+  "settings_image_layout_center": {
+    "message": "По центру",
+    "description": "Option for centered standalone images"
+  },
+  "settings_image_layout_left": {
+    "message": "Слева",
+    "description": "Option for left-aligned standalone images"
+  },
   "settings_interface_title": {
     "message": "Настройки интерфейса",
     "description": "Heading for interface settings section"
@@ -660,7 +716,7 @@
     "description": "Toast when language is changed successfully"
   },
   "settings_max_cache_label": {
-    "message": "Максимум элементов в кэше:",
+    "message": "Максимум элементов в кэше",
     "description": "Подпись поля"
   },
   "settings_reset_btn": {
@@ -724,7 +780,7 @@
     "description": "Сообщение при изменении темы"
   },
   "settings_theme_label": {
-    "message": "Выбрать тему:",
+    "message": "Выбрать тему",
     "description": "Подпись для выбора темы"
   },
   "share": {
@@ -806,6 +862,14 @@
   "workspace_desc": {
     "message": "Откройте локальный каталог для просмотра и предварительного просмотра поддерживаемых файлов.",
     "description": "Workspace landing page description"
+  },
+  "workspace_history_back": {
+    "message": "Назад",
+    "description": "Tooltip for the workspace preview history back button"
+  },
+  "workspace_history_forward": {
+    "message": "Вперёд",
+    "description": "Tooltip for the workspace preview history forward button"
   },
   "workspace_open": {
     "message": "Открыть рабочее пространство",

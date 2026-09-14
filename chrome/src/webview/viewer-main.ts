@@ -6,6 +6,9 @@
  */
 
 import DocxExporter from '../../../src/exporters/docx-exporter';
+import { exportBookToDocx, exportBookToEpub, absolutizeMarkdownUrls } from '../../../src/exporters/book-exporter';
+import { renderBookForPrint } from '../../../src/exporters/book-renderer';
+import { printElement, BOOK_PRINT_CSS, PRINT_BLOCKED_BY_SANDBOX } from '../../../src/ui/print-utils';
 import Localization, { DEFAULT_SETTING_LOCALE } from '../../../src/utils/localization';
 import themeManager from '../../../src/utils/theme-manager';
 import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
@@ -13,11 +16,13 @@ import { wrapFileContent } from '../../../src/utils/file-wrapper';
 import { buildCodeReadingRender, applyCodeViewPresentation } from '../../../src/utils/code-preview';
 import { initSlidevViewer } from '../../../src/slidev/slidev-viewer';
 import { getWebExtensionApi } from '../../../src/utils/platform-info';
+import { getTableLayout, getImageLayout, getDiagramLayout, exportViewerDocument } from '../../../src/core/viewer/viewer-host';
+import type { ViewerExportFormat } from '../../../src/core/viewer/viewer-host';
 
 import type { PluginRenderer, RendererThemeConfig, PlatformAPI } from '../../../src/types/index';
 
 import { escapeHtml } from '../../../src/core/markdown-utils';
-import { getCurrentDocumentUrl, saveToHistory } from '../../../src/core/document-utils';
+import { getCurrentDocumentUrl, saveToHistory, getDocumentFilename } from '../../../src/core/document-utils';
 import type { FileState } from '../../../src/types/core';
 import { showProcessingIndicator, hideProcessingIndicator } from './ui/progress-indicator';
 import { createTocManager } from './ui/toc-manager';
@@ -48,8 +53,9 @@ import { resolveDefaultTocVisibility } from '../../../src/core/viewer/viewer-ses
 import { createViewerSurfacePort } from '../../../src/core/viewer/viewer-surface-port';
 import type { ViewerDisplayMode } from '../../../src/core/viewer/viewer-host-adapter';
 import { setupImageContextMenu } from '../../../src/ui/image-context-menu';
+import { setupTableContextMenu } from '../../../src/ui/table-context-menu';
 import { setupDiagramLightbox } from '../../../src/ui/diagram-lightbox';
-import { setupCodeBlockCopy } from '../../../src/ui/code-block-copy';
+import { setupCodeBlockCopy, applyCodeBlockCopyLocale } from '../../../src/ui/code-block-copy';
 
 // Extend Window interface for global access
 declare global {
@@ -118,6 +124,11 @@ export interface ViewerMainRuntime {
   requestAnchor(anchor: string): Promise<void>;
   setScrollLine(line: number): void;
   getCurrentScrollLine(): number;
+  /** Run an export command (docx | epub | html | pdf | save) on the current document. */
+  exportDocument(
+    format: ViewerExportFormat,
+    options?: { filename?: string; title?: string },
+  ): Promise<void>;
 }
 
 let currentViewerMainRuntime: ViewerMainRuntime | null = null;
@@ -544,7 +555,31 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   };
 
   // Create navigation callback for GitBook panel (will be set after renderMarkdown is defined)
-  let onGitbookNavigate: ((url: string, content: string) => Promise<void>) | undefined;
+  let onGitbookNavigate: ((url: string, content: string, anchor?: string) => Promise<void>) | undefined;
+
+  /**
+   * Fetch a book page the same way the GitBook panel navigates:
+   * readRelativeFile for file:// pages, direct fetch for remote URLs.
+   */
+  const fetchBookPage = async (href: string): Promise<string> => {
+    if (href.startsWith('file://')) {
+      if (!platform.document) {
+        throw new Error('Document service unavailable');
+      }
+      return platform.document.readRelativeFile(href);
+    }
+    const response = await fetch(href);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return response.text();
+  };
+
+  /**
+   * Print CSS for whole-book PDF export: hide the current page, show the
+   * off-screen book container, and start every chapter on a new page.
+   * (Shared with the CLI headless PDF path via print-utils.)
+   */
 
   // Initialize GitBook panel manager
   const gitbookPanel = createGitbookPanel(saveFileState, getFileState, isMobile, {
@@ -562,14 +597,19 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       return Promise.resolve();
     },
   });
-  const { generateGitbookPanel, setupResponsivePanel } = gitbookPanel;
+  const { generateGitbookPanel, setupResponsivePanel, getGitbookNavItems, getGitbookNavEntries, getGitbookBookTitle, getGitbookBookExportName } = gitbookPanel;
 
   // Get the raw markdown content.
   // When the page is a rendered HTML document the html-to-markdown content
   // script will have already extracted and converted the article content;
   // fall back to document.body.textContent for plain-text / raw files.
+  // content-detector clears the raw body early (so the page paints
+  // immediately) and stashes the text on the isolated-world window — content
+  // scripts and the injected main.js share that world — so prefer the stash
+  // when present.
   const htmlConverted = window.__mvHtmlConvertedMarkdown;
-  const rawContent = htmlConverted?.markdown ?? document.body.textContent ?? '';
+  const stashedRawContent = (window as unknown as { __mvStashedRawContent?: string }).__mvStashedRawContent;
+  const rawContent = htmlConverted?.markdown ?? stashedRawContent ?? document.body.textContent ?? '';
   if (htmlConverted?.title) {
     document.title = htmlConverted.title;
   }
@@ -875,9 +915,90 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       });
     },
     enableSourceToggle: isMarkdownSourceToggleEnabled(),
+    onExportBookDocx: async ({ onProgress }) => {
+      const pages = getGitbookNavItems();
+      if (pages.length === 0) {
+        return { success: false, error: 'No book pages found' };
+      }
+      const bookTitle = getGitbookBookTitle();
+      const exportName = getGitbookBookExportName();
+      return exportBookToDocx({
+        pages,
+        navEntries: getGitbookNavEntries(),
+        bookTitle,
+        filename: exportName || getDocumentFilename(),
+        fetchPage: fetchBookPage,
+        renderer: pluginRenderer,
+        onProgress,
+      });
+    },
+    onExportBookEpub: async ({ onProgress }) => {
+      const pages = getGitbookNavItems();
+      if (pages.length === 0) {
+        return { success: false, error: 'No book pages found' };
+      }
+      const bookTitle = getGitbookBookTitle();
+      const exportName = getGitbookBookExportName();
+      const [tableLayout, imageLayout, diagramLayout] = await Promise.all([
+        getTableLayout(platform),
+        getImageLayout(platform),
+        getDiagramLayout(platform),
+      ]);
+      return exportBookToEpub({
+        pages,
+        navEntries: getGitbookNavEntries(),
+        bookTitle,
+        filename: exportName || getDocumentFilename(),
+        fetchPage: fetchBookPage,
+        renderer: pluginRenderer,
+        translate,
+        tableLayout,
+        imageLayout,
+        diagramLayout,
+        onProgress,
+        // Required so chapter images can be embedded: without a document
+        // service the EPUB export cannot read local image files and leaves
+        // broken external (file://) references in every chapter.
+        documentService: platform.document,
+      });
+    },
+    onExportBookPdf: async ({ onProgress }) => {
+      const pages = getGitbookNavItems();
+      if (pages.length === 0) {
+        return { success: false, error: 'No book pages found' };
+      }
+      const [tableLayout, imageLayout, diagramLayout] = await Promise.all([
+        getTableLayout(platform),
+        getImageLayout(platform),
+        getDiagramLayout(platform),
+      ]);
+      const rendered = await renderBookForPrint({
+        pages,
+        fetchPage: fetchBookPage,
+        renderer: pluginRenderer,
+        translate,
+        tableLayout,
+        imageLayout,
+        diagramLayout,
+        onProgress,
+      });
+      try {
+        await printElement(rendered.container, getGitbookBookTitle() || document.title, BOOK_PRINT_CSS);
+        return { success: true };
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        if (errMsg === PRINT_BLOCKED_BY_SANDBOX) {
+          throw error;
+        }
+        return { success: false, error: errMsg };
+      } finally {
+        rendered.cleanup();
+      }
+    },
     onToggleSourceMode: () => {
       void (async () => {
-        if (!viewerAssembler) {
+        const assembler = viewerAssembler;
+        if (!assembler) {
           return;
         }
         const scrollLine = getCurrentScrollLine();
@@ -886,7 +1007,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
           scrollLine,
           before: getViewerSnapshot(),
         });
-        await viewerAssembler.reportCurrentLine(scrollLine);
+        await assembler.reportCurrentLine(scrollLine);
         const reportEndedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
         logViewerDebug('toggleSource.reportCurrentLine.done', {
           scrollLine,
@@ -895,7 +1016,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         });
         await executeViewerCommand(
           'toggleSource.failed',
-          () => viewerAssembler.toggleModeIntent(),
+          () => assembler.toggleModeIntent(),
           { scrollLine },
         );
       })();
@@ -1148,6 +1269,18 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       requestAnimationFrame(check);
     });
 
+    // ── Frame-first unveil ────────────────────────────────────────────────
+    // The toolbar/layout shell is already in the DOM after initializeToolbar;
+    // reveal it immediately so the user sees the viewer open right away
+    // (themed background + toolbar), then content streams into the shell.
+    // Skipped when a saved scroll position must be restored — unveiling early
+    // there would show the empty shell and then jump thousands of px once the
+    // tall document mounts (issue #110) — and in embed/workspace mode, where
+    // the parent page controls iframe reveal via the VIEWER_RENDERED message.
+    if (window.parent === window && !hasScrollTarget) {
+      unveilOnce();
+    }
+
     try {
       const renderPromise = renderMarkdown(liveRawContent, savedScrollLine, pendingAnchor ?? undefined);
 
@@ -1157,18 +1290,31 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       await waitForNextFrame(); // Let the restored scroll / first paint settle.
       unveilOnce();
 
-      // Wait for render to fully complete before post-render setup.
+      // Chrome-side boot that only needs the STREAMED text — all content
+      // blocks are in the DOM once unveil fires. Async diagrams (mermaid,
+      // plantuml, infographic, ...) may take seconds and must NOT delay
+      // history/TOC/keyboard/GitBook setup: the user can read and navigate
+      // while diagrams finish rendering in placeholders.
+      await saveToHistory(platform);
+      setupTocToggle();
+      toolbarManager.setupKeyboardShortcuts();
+      await setupResponsiveToc();
+      await setupResponsivePanel();
+
+      // GitBook SUMMARY.md discovery runs in the BACKGROUND: it may probe up
+      // to 20 directory levels (each a file read round trip), and it must
+      // never delay the boot sequence — the panel (plus export menus that
+      // read its results) can pop in whenever it finishes. Any failure is
+      // logged, never thrown.
+      void generateGitbookPanel().catch((error) => {
+        console.error('[GitBook] panel generation failed:', error);
+      });
+
+      // Wait for render to fully complete (async diagrams) before finishing.
       await renderPromise;
     } finally {
       unveilOnce();
     }
-
-    await saveToHistory(platform);
-    setupTocToggle();
-    toolbarManager.setupKeyboardShortcuts();
-    await setupResponsiveToc();
-    await setupResponsivePanel();
-    await generateGitbookPanel();
   };
 
   void (async () => {
@@ -1328,14 +1474,28 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   }
 
   // Setup GitBook navigation handler (navigate without page refresh)
-  onGitbookNavigate = async (url: string, content: string): Promise<void> => {
+  onGitbookNavigate = async (url: string, content: string, anchor?: string): Promise<void> => {
     try {
+      // Panel navigation keeps the page URL unchanged (it stays on the
+      // SUMMARY page), so relative image/link URLs inside a chapter would
+      // resolve against the SUMMARY directory instead of the chapter's own
+      // directory. Absolutize them against the chapter URL so previews keep
+      // working for chapters in subdirectories.
+      const fileUrl = anchor ? url.split('#')[0] : url;
+      const absolutized = absolutizeMarkdownUrls(content, fileUrl);
+
+      // Point the document service at the chapter so relative reads (SVG
+      // plugin, DOCX/print flows) resolve against the chapter directory too.
+      if (fileUrl.startsWith('file://') && platform.document) {
+        platform.document.setDocumentPath(fileUrl);
+      }
+
       // Update document title from URL or filename
-      const filename = url.split('/').pop()?.replace(/\.md$/, '') || 'Document';
+      const filename = fileUrl.split('/').pop()?.replace(/\.md$/, '') || 'Document';
       document.title = filename;
 
       // Update page content with new markdown
-      await renderMarkdown(content);
+      await renderMarkdown(absolutized, undefined, anchor);
 
       // Save to browser history
       saveToHistory(platform);
@@ -1370,6 +1530,47 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     }
   }
 
+  // Tracks the last locale whose UI text was applied in place, so the message
+  // broadcast and the storage event don't both re-apply the same change.
+  let lastAppliedUiLocale: string | null = null;
+
+  /**
+   * Apply a locale change to the already-mounted viewer UI without reloading.
+   * Toolbar tooltips, code-copy button labels and the workspace history
+   * controls are re-translated in place; document content is locale-neutral.
+   * Reloading was previously used here, but in embed contexts the document
+   * arrives via postMessage so a reload blanks the preview.
+   */
+  async function applyUiLocale(locale: string): Promise<void> {
+    if (locale === lastAppliedUiLocale) {
+      return;
+    }
+    try {
+      await Localization.setPreferredLocale(locale);
+      lastAppliedUiLocale = locale;
+      toolbarManager.applyLocale();
+      const contentContainer = document.getElementById('markdown-content');
+      if (contentContainer) {
+        applyCodeBlockCopyLocale(contentContainer, translate);
+      }
+      const historyBack = document.getElementById('workspace-history-back');
+      if (historyBack) {
+        const title = Localization.translate('workspace_history_back') || 'Back';
+        historyBack.setAttribute('title', title);
+        historyBack.setAttribute('aria-label', title);
+      }
+      const historyForward = document.getElementById('workspace-history-forward');
+      if (historyForward) {
+        const title = Localization.translate('workspace_history_forward') || 'Forward';
+        historyForward.setAttribute('title', title);
+        historyForward.setAttribute('aria-label', title);
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to update locale in main script:', error);
+    }
+  }
+
   /**
    * Setup message listener for locale/theme/file changes
    */
@@ -1381,21 +1582,10 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
 
       const msg = message as IncomingBroadcastMessage;
 
-      const nextLocale = (locale: string) => {
-        Localization.setPreferredLocale(locale)
-          .catch((error) => {
-            // eslint-disable-next-line no-console
-            console.error('Failed to update locale in main script:', error);
-          })
-          .finally(() => {
-            window.location.reload();
-          });
-      };
-
       if (msg.type === 'LOCALE_CHANGED') {
         const payload = msg.payload && typeof msg.payload === 'object' ? (msg.payload as Record<string, unknown>) : null;
         const locale = payload && typeof payload.locale === 'string' && payload.locale.length > 0 ? payload.locale : DEFAULT_SETTING_LOCALE;
-        nextLocale(locale);
+        void applyUiLocale(locale);
         return;
       }
 
@@ -1457,6 +1647,20 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         return;
       }
     });
+
+    // Content scripts do not receive runtime.sendMessage broadcasts sent from
+    // extension pages (Chrome), so also react to locale changes via storage.
+    // This keeps the standalone injected viewer in sync without reloading.
+    if (webExtensionApi.storage?.onChanged) {
+      webExtensionApi.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== 'local' || !changes.markdownViewerSettings) {
+          return;
+        }
+        const settings = changes.markdownViewerSettings.newValue as { preferredLocale?: string } | undefined;
+        const nextLocale = settings?.preferredLocale || DEFAULT_SETTING_LOCALE;
+        void applyUiLocale(nextLocale);
+      });
+    }
   }
 
   /**
@@ -1518,6 +1722,21 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       markdownViewerAdapter?.restorePreviewScroll(line);
     },
     getCurrentScrollLine: () => getCurrentScrollLine(),
+    exportDocument: async (format, exportOptions) => {
+      // Same behavior as the standalone preview toolbar's export menu:
+      // DOCX / EPUB / HTML / PDF (print) / save raw file.
+      const page = document.getElementById('markdown-page') as HTMLElement | null;
+      const filename = exportOptions?.filename || getDocumentFilename();
+      await exportViewerDocument({
+        format,
+        markdown: liveRawContent,
+        filename,
+        title: exportOptions?.title || document.title || filename,
+        container: page,
+        renderer: pluginRenderer,
+        platform,
+      });
+    },
   };
 
   /**
@@ -1586,10 +1805,125 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   // Setup message listener for theme/locale/file changes
   setupMessageListener();
 
+  /**
+   * In-page navigation for markdown links inside the rendered content.
+   *
+   * Links in chapters are absolutized against the chapter URL during gitbook
+   * navigation, so clicking one natively would navigate the whole page
+   * (a janky full reload). Intercept markdown-file links and re-render in
+   * place — exactly like the SUMMARY panel — keeping the page URL stable.
+   * Anchor-only links, external protocols and the panel's own links keep
+   * their existing behavior.
+   */
+  document.addEventListener('click', (event) => {
+    // The workspace embed viewer handles links itself (WORKSPACE_NAVIGATE).
+    if (window.parent !== window) {
+      return;
+    }
+
+    const target = event.target as HTMLElement | null;
+    const anchor = target?.closest?.('a');
+    if (!anchor || anchor.target === '_blank') {
+      return;
+    }
+
+    const rawHref = anchor.getAttribute('href');
+    if (!rawHref || rawHref.startsWith('#')) {
+      return;
+    }
+    // Panel links already navigate in place via their own handler.
+    if (anchor.closest('#gitbook-panel')) {
+      return;
+    }
+
+    let targetUrl: string;
+    try {
+      targetUrl = new URL(rawHref, window.location.href).href;
+    } catch {
+      return;
+    }
+
+    const pathname = targetUrl.split('#')[0].toLowerCase();
+    const isMarkdownLink = pathname.endsWith('.md') || pathname.endsWith('.markdown');
+    // Intercept same-origin markdown links only (file:// pages count as one
+    // origin); external sites keep the browser's native navigation.
+    let sameOrigin = false;
+    try {
+      const current = new URL(window.location.href);
+      const target = new URL(targetUrl);
+      sameOrigin = target.protocol === current.protocol && target.host === current.host;
+    } catch {
+      sameOrigin = false;
+    }
+    if (!isMarkdownLink || !sameOrigin) {
+      return;
+    }
+
+    event.preventDefault();
+    const hashIndex = targetUrl.indexOf('#');
+    const anchorId = hashIndex >= 0 ? decodeURIComponent(targetUrl.slice(hashIndex + 1)) : undefined;
+
+    void (async () => {
+      try {
+        let content: string | null = null;
+        if (targetUrl.startsWith('file://') && platform.document) {
+          try {
+            content = await platform.document.readFile(targetUrl);
+          } catch (error) {
+            void error;
+          }
+        }
+        if (content === null && /^https?:/i.test(targetUrl)) {
+          const response = await fetch(targetUrl);
+          if (response.ok) {
+            content = await response.text();
+          }
+        }
+        if (content === null) {
+          throw new Error('Failed to read linked document');
+        }
+        if (onGitbookNavigate) {
+          await onGitbookNavigate(targetUrl, content, anchorId);
+        } else {
+          await renderMarkdown(content, undefined, anchorId);
+        }
+      } catch (error) {
+        // Never leave the click unanswered: fall back to the browser's own
+        // navigation (which also lets the content script re-render the file).
+        console.warn('[Viewer] In-page link navigation failed, opening directly:', targetUrl, error);
+        window.location.assign(targetUrl);
+      }
+    })();
+  });
+
   // Setup image context menu (shared cross-platform)
   const contentContainer = document.getElementById('markdown-content');
   if (contentContainer) {
     setupImageContextMenu({
+      container: contentContainer,
+      onDownload: ({ filename, data, mimeType }) => {
+        // Use <a download> for browser-based download
+        const blob = new Blob(
+          [Uint8Array.from(atob(data), c => c.charCodeAt(0))],
+          { type: mimeType }
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      },
+      translate: (key) => Localization.translate(key),
+    });
+
+    // Setup table context menu for copy/Excel export (shared cross-platform)
+    setupTableContextMenu({
       container: contentContainer,
       onDownload: ({ filename, data, mimeType }) => {
         // Use <a download> for browser-based download

@@ -7,6 +7,7 @@ import Localization, { DEFAULT_SETTING_LOCALE } from '../../../src/utils/localiz
 import { applyI18nText } from '../../../src/ui/popup/i18n-helpers';
 import { ALL_SUPPORTED_EXTENSIONS } from '../../../src/types/formats';
 import { chevronRight, chevronDown, folderClosed, folderOpen, folderPlus, searchIcon, fileSearchIcon, textSearchIcon, arrowLeft, arrowRight, getFileIcon } from './file-icons';
+import { rewriteHtmlForPreview, type HtmlPreviewRewriteResult } from './html-preview-rewrite';
 import themeManager from '../../../src/utils/theme-manager';
 import { createViewerIframeHostBridge } from '../../../src/integration/iframe-viewer-host';
 import type { ViewerIframeMessage } from '../../../src/integration/iframe-viewer-host';
@@ -197,6 +198,17 @@ function ensureViewerFrameReady(): Promise<void> {
 
   return previewFrameReadyPromise;
 }
+
+// Re-sync host UI (theme, history controls) to the embedded viewer whenever it
+// (re)loads. The iframe reloads itself on popup locale changes (viewer-main
+// calls window.location.reload()); postMessages sent during that navigation
+// are dropped, so this persistent listener brings the toolbar back in sync
+// once the new document signals VIEWER_READY. Idempotent on the first load.
+window.addEventListener('message', (event: MessageEvent) => {
+  if (event.source !== $previewFrame.contentWindow) return;
+  if (event.data?.type !== 'VIEWER_READY') return;
+  void postHostUiToViewer();
+});
 
 async function getStoredSidebarWidth(): Promise<number | null> {
   try {
@@ -937,6 +949,20 @@ function resolveRelativePath(fileDir: string, relativePath: string): string {
   return parts.join('/');
 }
 
+/**
+ * Decode a percent-encoded path from a rendered document. The browser
+ * serializes non-ASCII characters in `src`/`href` attributes as percent
+ * escapes (e.g. `06-01-%E8%AF%81...png`), but File System Access API lookups
+ * expect the real file name. Malformed sequences fall back to the raw path.
+ */
+function decodeDocumentPath(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 async function resolveFileFromRoot(path: string): Promise<File | null> {
   if (!rootDirHandle) {
     const droppedHandle = droppedFileHandles.get(path);
@@ -965,6 +991,74 @@ async function showImagePreview(_file: File, name: string, _ext: string): Promis
   // Pass a relative reference so resolveWorkspaceImages in viewer-embed
   // can resolve it via the parent's File System Access API — no base64 needed.
   await sendToViewer(`![${name}](./${name})`, name + '.md');
+}
+
+// ─── HTML 文件预览(sandbox iframe) ───
+// blob: 文档继承 extension_pages CSP(不允许 unsafe-inline)且相对路径资源
+// 无法解析 —— 单文件交互式 deck 在普通 iframe 里永远无法运行。改为加载
+// manifest "sandbox" 声明的沙箱页(独立 CSP,放行 unsafe-inline + CDN),
+// 资源改写(相对路径 → blob: URL)在此完成,改写后的 HTML 经 postMessage
+// 交给沙箱页渲染。
+const HTML_PREVIEW_SANDBOX_URL = webExtensionApi.runtime.getURL('ui/workspace/html-preview-sandbox.html');
+let htmlPreviewRewrite: HtmlPreviewRewriteResult | null = null;
+let pendingHtmlPreview: string | null = null;
+
+window.addEventListener('message', (event) => {
+  if (event.source !== $previewFrame.contentWindow) return;
+  const data = event.data;
+  if (!data || typeof data !== 'object') return;
+  if (data.type === 'MV_HTML_PREVIEW_READY' && pendingHtmlPreview !== null) {
+    $previewFrame.contentWindow?.postMessage(
+      { type: 'MV_HTML_PREVIEW', html: pendingHtmlPreview },
+      '*',
+    );
+  }
+});
+
+async function openHtmlPreview(file: File, _name: string): Promise<void> {
+  // 释放上一次预览创建的 blob URL,避免切换文件时泄漏
+  if (htmlPreviewRewrite) {
+    htmlPreviewRewrite.revoke();
+    htmlPreviewRewrite = null;
+  }
+  pendingHtmlPreview = null;
+
+  const text = await file.text();
+  let previewHtml = text;
+
+  if (rootDirHandle) {
+    try {
+      const result = await rewriteHtmlForPreview(text, async (relPath) => {
+        // 前置逃逸检查:解析前统计前导 ../ 数量,超过当前文件目录深度则放弃
+        // (resolveRelativePath 会先折叠 ../,折叠后可能误命中根目录同名文件)
+        const dirDepth = currentFileDir.split('/').filter(Boolean).length;
+        let upCount = 0;
+        for (const seg of relPath.split('/')) {
+          if (seg === '..') upCount++;
+          else break;
+        }
+        if (upCount > dirDepth) return null;
+
+        const resolved = resolveRelativePath(currentFileDir, relPath);
+        if (!resolved) return null;
+        return resolveFileFromRoot(resolved);
+      });
+      previewHtml = result.html;
+      htmlPreviewRewrite = result;
+    } catch (error) {
+      console.warn('[workspace] HTML preview rewrite failed, falling back to raw html', error);
+    }
+  }
+
+  $previewEmpty.style.display = 'none';
+  $previewFrame.style.display = 'block';
+  resetPreviewFrameState();
+  pendingHtmlPreview = previewHtml;
+  // 每次强制重载沙箱页(带时间戳防缓存):重复向同一文档投递内容会二次
+  // 执行 deck 脚本,顶层 const/let 重复声明直接 SyntaxError。重载 = 全新
+  // 文档,与浏览器原生打开文件语义一致。加载完成后 READY 会取
+  // pendingHtmlPreview 投递内容。
+  $previewFrame.src = `${HTML_PREVIEW_SANDBOX_URL}?t=${Date.now()}`;
 }
 
 // ─── File preview via embedded viewer ───
@@ -1015,10 +1109,7 @@ async function openFile(fileHandle: FileSystemFileHandle, options?: { targetLine
   }
 
   if (DIRECT_HTML_PREVIEW_EXTENSIONS.has(ext)) {
-    $previewEmpty.style.display = 'none';
-    $previewFrame.style.display = 'block';
-    resetPreviewFrameState();
-    $previewFrame.src = URL.createObjectURL(file);
+    await openHtmlPreview(file, name);
     return;
   }
 
@@ -1327,7 +1418,7 @@ window.addEventListener('message', async (event: MessageEvent) => {
 
   if (event.data?.type === 'RESOLVE_IMAGE') {
     const { src, id } = event.data;
-    const resolved = resolveRelativePath(currentFileDir, src);
+    const resolved = resolveRelativePath(currentFileDir, decodeDocumentPath(src));
     const file = await resolveFileFromRoot(resolved);
     if (file) {
       const url = URL.createObjectURL(file);
@@ -1342,7 +1433,7 @@ window.addEventListener('message', async (event: MessageEvent) => {
     const hashIndex = rawPath.indexOf('#');
     const pathOnly = hashIndex >= 0 ? rawPath.slice(0, hashIndex) : rawPath;
     if (pathOnly) {
-      const resolved = resolveRelativePath(currentFileDir, pathOnly);
+      const resolved = resolveRelativePath(currentFileDir, decodeDocumentPath(pathOnly));
       void navigateToWorkspaceFile(resolved);
     }
     return;
@@ -1351,7 +1442,7 @@ window.addEventListener('message', async (event: MessageEvent) => {
   // File read requests from DocumentService.readRelativeFile (SVG plugin, DOCX export, etc.)
   if (event.data?.type === 'RESOLVE_FILE') {
     const { path, id, binary } = event.data;
-    const resolved = resolveRelativePath(currentFileDir, path);
+    const resolved = resolveRelativePath(currentFileDir, decodeDocumentPath(path));
     const file = await resolveFileFromRoot(resolved);
     if (file) {
       try {
@@ -1550,9 +1641,9 @@ Localization.init().then(async () => {
             applyI18nText();
             updateSearchUI();
             renderTreeView();
-            if (activeFilePath) {
-              void restoreLastFile(activeFilePath);
-            }
+            // The embedded viewer re-translates its own UI text in place on
+            // locale change (viewer-main applyUiLocale), so no document
+            // re-send or iframe reload is needed here.
           })
           .catch((error) => {
             console.error('[Workspace] Failed to update locale:', error);

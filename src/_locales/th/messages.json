@@ -19,6 +19,30 @@
     "message": "ข้อผิดพลาดที่ไม่รู้จัก",
     "description": "Fallback when error message missing"
   },
+  "book_export_docx": {
+    "message": "ส่งออกหนังสือเป็น DOCX",
+    "description": "Menu item: export the whole GitBook book as a single DOCX"
+  },
+  "book_export_epub": {
+    "message": "ส่งออกหนังสือเป็น EPUB",
+    "description": "Menu item: export the whole GitBook book as a single EPUB ebook"
+  },
+  "book_export_failed": {
+    "message": "ส่งออกหนังสือล้มเหลว: {0}",
+    "description": "Alert shown when whole-book export fails, with error detail"
+  },
+  "book_export_pdf": {
+    "message": "ส่งออกหนังสือเป็น PDF",
+    "description": "Menu item: export the whole GitBook book as a PDF via print"
+  },
+  "book_export_skipped_pages": {
+    "message": "ข้าม {0} หน้า",
+    "description": "Alert shown after export when some pages could not be fetched"
+  },
+  "book_export_title": {
+    "message": "ส่งออกหนังสือ",
+    "description": "Tooltip for the whole-book export dropdown button in the SUMMARY panel header"
+  },
   "cache_clear": {
     "message": "ล้างแคช",
     "description": "Clear cache button"
@@ -175,6 +199,10 @@
     "message": "Copy as PNG",
     "description": "Context menu item for copying a diagram as PNG"
   },
+  "copy_table": {
+    "message": "คัดลอกตาราง",
+    "description": "Context menu item for copying a rendered table as spreadsheet cells"
+  },
   "delete": {
     "message": "Delete",
     "description": "Delete button text"
@@ -203,6 +231,10 @@
     "message": "ส่งออกเป็น DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_epub": {
+    "message": "ส่งออกเป็น EPUB",
+    "description": "Export menu item for exporting the current document to EPUB"
+  },
   "export_menu_export_html": {
     "message": "ส่งออกเป็น HTML",
     "description": "Export menu item for exporting to HTML"
@@ -220,7 +252,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown สู่ Word สมบูรณ์แบบ — Mermaid, PlantUML, Vega, drawio, อินโฟกราฟิก, Graphviz, LaTeX, ไฮไลท์โค้ด, ประมวลผลในเครื่อง.",
+    "message": "ดูตัวอย่าง Markdown ในเครื่อง และส่งออกเอกสาร Word พร้อมไดอะแกรม สูตรที่แก้ไขได้ และไฮไลท์โค้ด",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -511,6 +543,10 @@
     "message": "บันทึกรูปภาพเป็น…",
     "description": "Context menu item for saving an image"
   },
+  "save_table_as_xlsx": {
+    "message": "บันทึกเป็น Excel (.xlsx)",
+    "description": "Context menu item for saving a rendered table as an Excel (.xlsx) file"
+  },
   "search_case_sensitive": {
     "message": "ตรงตามตัวพิมพ์",
     "description": "Toggle case sensitive search"
@@ -536,7 +572,7 @@
     "description": "Label for auto refresh checkbox"
   },
   "settings_auto_refresh_interval": {
-    "message": "ช่วงเวลารีเฟรช:",
+    "message": "ช่วงเวลารีเฟรช",
     "description": "Label for refresh interval selector"
   },
   "settings_auto_refresh_note": {
@@ -550,6 +586,18 @@
   "settings_cache_title": {
     "message": "แคช",
     "description": "Title for cache settings section"
+  },
+  "settings_diagram_layout": {
+    "message": "เค้าโครงไดอะแกรม",
+    "description": "Label for diagram alignment selector"
+  },
+  "settings_diagram_layout_center": {
+    "message": "กึ่งกลาง",
+    "description": "Option for centered diagrams"
+  },
+  "settings_diagram_layout_left": {
+    "message": "ซ้าย",
+    "description": "Option for left-aligned diagrams"
   },
   "settings_docx_emoji_style": {
     "message": "สไตล์อิโมจิ",
@@ -572,11 +620,11 @@
     "description": "Option for Windows emoji style"
   },
   "settings_docx_hr_display": {
-    "message": "DOCX: การจัดการเส้นแนวนอน",
+    "message": "การจัดการเส้นแนวนอน",
     "description": "Label for DOCX horizontal rule handling selector"
   },
   "settings_docx_hr_display_hide": {
-    "message": "ซ่อน (บรรทัดว่าง)",
+    "message": "ซ่อน",
     "description": "Option to hide horizontal rules in DOCX"
   },
   "settings_docx_hr_display_line": {
@@ -611,16 +659,12 @@
     "message": "4 อักขระ",
     "description": "Option: 4 characters first-line indent"
   },
-  "settings_first_line_indent_note": {
-    "message": "จำนวนอักขระสำหรับเยื้องบรรทัดแรกของย่อหน้าเนื้อหา มีผลเฉพาะกับธีมที่รองรับการเยื้องเท่านั้น",
-    "description": "Helper note for first-line indent option"
-  },
   "settings_first_line_indent_off": {
     "message": "ไม่เยื้อง",
     "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
-    "message": "การแสดง Frontmatter:",
+    "message": "การแสดง Frontmatter",
     "description": "Label for frontmatter display mode selector"
   },
   "settings_frontmatter_hide": {
@@ -643,6 +687,18 @@
     "message": "การตั้งค่าส่วนขยาย",
     "description": "Heading for settings section"
   },
+  "settings_image_layout": {
+    "message": "เค้าโครงรูปภาพ",
+    "description": "Label for standalone image alignment selector"
+  },
+  "settings_image_layout_center": {
+    "message": "กึ่งกลาง",
+    "description": "Option for centered standalone images"
+  },
+  "settings_image_layout_left": {
+    "message": "ซ้าย",
+    "description": "Option for left-aligned standalone images"
+  },
   "settings_interface_title": {
     "message": "การตั้งค่าอินเทอร์เฟซ",
     "description": "Heading for interface settings section"
@@ -660,7 +716,7 @@
     "description": "Toast when language is changed successfully"
   },
   "settings_max_cache_label": {
-    "message": "รายการแคชสูงสุด:",
+    "message": "รายการแคชสูงสุด",
     "description": "Label for max cache input"
   },
   "settings_reset_btn": {
@@ -806,6 +862,14 @@
   "workspace_desc": {
     "message": "เปิดไดเรกทอรีในเครื่องเพื่อเรียกดูและดูตัวอย่างไฟล์ที่รองรับ",
     "description": "Workspace landing page description"
+  },
+  "workspace_history_back": {
+    "message": "ย้อนกลับ",
+    "description": "Tooltip for the workspace preview history back button"
+  },
+  "workspace_history_forward": {
+    "message": "ถัดไป",
+    "description": "Tooltip for the workspace preview history forward button"
   },
   "workspace_open": {
     "message": "เปิดพื้นที่ทำงาน",

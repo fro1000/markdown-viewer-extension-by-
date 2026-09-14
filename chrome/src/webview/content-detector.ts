@@ -3,6 +3,7 @@
 // Supports both Chrome (chrome.*) and Firefox (browser.*) APIs
 
 import { getWebExtensionApi } from '../../../src/utils/platform-info';
+import { decodeBytes, detectByteEncoding, hasMojibakeSymptoms } from '../../../src/utils/encoding-recovery';
 
 import {
   ALL_SUPPORTED_EXTENSIONS,
@@ -86,7 +87,13 @@ function isProcessableContent(): boolean | null {
 }
 
 /**
- * Hide the page content immediately to prevent flash of unstyled content
+ * Hide the page content immediately to prevent flash of unstyled content.
+ *
+ * The page is kept fully hidden (opacity: 0) until the viewer renders, so the
+ * user never sees the raw markdown source the browser displays for .md files.
+ * Showing the raw text would not make the render finish any sooner — it only
+ * fills the boot window with an unpolished source-code view, which is why the
+ * hide was introduced and stays.
  */
 function hidePageContent(): void {
   // Add inline style to hide content immediately
@@ -115,7 +122,7 @@ function hidePageContent(): void {
 /**
  * Inject the main content script
  */
-function injectContentScript(): void {
+async function injectContentScript(): Promise<void> {
   // If user explicitly marked this session to view as raw, abort.
   try {
     if (sessionStorage.getItem('markdownViewerRawOverride') === '1') {
@@ -125,10 +132,67 @@ function injectContentScript(): void {
     // sessionStorage access denied
   }
 
-  // Hide content immediately before injection to prevent flashing
+  // Hide content immediately while preserving the raw body for detection.
   hidePageContent();
 
+  // Ensure the text document has been parsed before inspecting its decoded body.
+  if (!document.body && document.readyState === 'loading') {
+    await new Promise<void>((resolve) => {
+      document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });
+    });
+  }
+
   const url = document.location.href;
+  const bodyText = document.body?.textContent || '';
+  // Only refetch when the decoded DOM shows clear misdecoding symptoms.
+  if (/^https?:/i.test(url) && hasMojibakeSymptoms(bodyText)) {
+    try {
+      const response = await fetch(url, { credentials: 'same-origin' });
+      if (response.ok) {
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        // Detect the real charset from the raw bytes instead of assuming
+        // UTF-8: genuinely legacy files (GBK/Big5/...) would otherwise turn
+        // into U+FFFD garbage, and single-byte legacy files that decoded
+        // correctly must not be touched.
+        const encoding = detectByteEncoding(bytes);
+        const recovered = encoding ? decodeBytes(bytes, encoding) : null;
+        // Skip rewriting when the detected encoding reproduces what the
+        // browser already decoded (the text is intact) or yielded nothing.
+        if (document.body && recovered && recovered !== bodyText) {
+          document.body.textContent = recovered;
+        }
+      }
+    } catch {
+      // Background injection and the viewer retain their own fallbacks.
+    }
+  }
+
+  // ── Clear the raw document immediately ─────────────────────────────────
+  // The raw markdown text has served its purpose (decoded + stashed). Wipe
+  // the body NOW and lift the opacity:0 hide so the page becomes visible
+  // right away; every later paint — the toolbar shell, the streamed content
+  // blocks — then shows immediately instead of waiting for the viewer to
+  // finish initializing before the hide is removed. The text is stashed on
+  // the isolated-world window (content scripts and the injected main.js
+  // share that world) for the viewer to pick up.
+  const stashedText = document.body?.textContent || '';
+  if (stashedText) {
+    try {
+      (window as unknown as { __mvStashedRawContent?: string }).__mvStashedRawContent = stashedText;
+    } catch { /* non-extensible window — keep body text as fallback */ }
+  }
+  document.body.innerHTML = '';
+  // Lift the hide but KEEP the color-scheme/background declarations so the
+  // empty page paints the UA canvas color (dark in dark mode) instead of
+  // flashing a bright white rectangle before the theme CSS arrives.
+  const preloadStyle = document.getElementById('markdown-viewer-preload');
+  if (preloadStyle) {
+    preloadStyle.textContent = `
+      :root { color-scheme: light dark; }
+      html, body { background: Canvas; }
+    `;
+  }
+
   const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   const request = {

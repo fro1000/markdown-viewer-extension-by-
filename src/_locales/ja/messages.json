@@ -19,6 +19,30 @@
     "message": "不明なエラー",
     "description": "詳細がない場合の文言"
   },
+  "book_export_docx": {
+    "message": "本をDOCXにエクスポート",
+    "description": "Menu item: export the whole GitBook book as a single DOCX"
+  },
+  "book_export_epub": {
+    "message": "本をEPUBにエクスポート",
+    "description": "Menu item: export the whole GitBook book as a single EPUB ebook"
+  },
+  "book_export_failed": {
+    "message": "本のエクスポートに失敗しました: {0}",
+    "description": "Alert shown when whole-book export fails, with error detail"
+  },
+  "book_export_pdf": {
+    "message": "本をPDFにエクスポート",
+    "description": "Menu item: export the whole GitBook book as a PDF via print"
+  },
+  "book_export_skipped_pages": {
+    "message": "{0} ページをスキップしました",
+    "description": "Alert shown after export when some pages could not be fetched"
+  },
+  "book_export_title": {
+    "message": "本をエクスポート",
+    "description": "Tooltip for the whole-book export dropdown button in the SUMMARY panel header"
+  },
   "cache_clear": {
     "message": "キャッシュをクリア",
     "description": "キャッシュクリアボタン"
@@ -175,6 +199,10 @@
     "message": "Copy as PNG",
     "description": "Context menu item for copying a diagram as PNG"
   },
+  "copy_table": {
+    "message": "表をコピー",
+    "description": "Context menu item for copying a rendered table as spreadsheet cells"
+  },
   "delete": {
     "message": "削除",
     "description": "Delete button text"
@@ -203,6 +231,10 @@
     "message": "DOCX にエクスポート",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_epub": {
+    "message": "EPUBにエクスポート",
+    "description": "Export menu item for exporting the current document to EPUB"
+  },
   "export_menu_export_html": {
     "message": "HTML にエクスポート",
     "description": "Export menu item for exporting to HTML"
@@ -220,7 +252,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown を完璧な Word に — Mermaid、PlantUML、Vega、drawio、canvas、インフォグラフィック、Graphviz、LaTeX（編集可能）、コードハイライト、ローカル処理.",
+    "message": "Markdown をローカルでプレビューし、図表、編集可能な数式、コードハイライト付きの Word 文書を書き出せます。",
     "description": "Chrome ウェブストアに表示される説明"
   },
   "extensionName": {
@@ -511,6 +543,10 @@
     "message": "名前を付けて画像を保存…",
     "description": "Context menu item for saving an image"
   },
+  "save_table_as_xlsx": {
+    "message": "Excel として保存 (.xlsx)",
+    "description": "Context menu item for saving a rendered table as an Excel (.xlsx) file"
+  },
   "search_case_sensitive": {
     "message": "大文字と小文字を区別",
     "description": "Toggle case sensitive search"
@@ -536,7 +572,7 @@
     "description": "Label for auto refresh checkbox"
   },
   "settings_auto_refresh_interval": {
-    "message": "更新間隔:",
+    "message": "更新間隔",
     "description": "Label for refresh interval selector"
   },
   "settings_auto_refresh_note": {
@@ -550,6 +586,18 @@
   "settings_cache_title": {
     "message": "キャッシュ",
     "description": "Title for cache settings section"
+  },
+  "settings_diagram_layout": {
+    "message": "図表の配置",
+    "description": "Label for diagram alignment selector"
+  },
+  "settings_diagram_layout_center": {
+    "message": "中央",
+    "description": "Option for centered diagrams"
+  },
+  "settings_diagram_layout_left": {
+    "message": "左",
+    "description": "Option for left-aligned diagrams"
   },
   "settings_docx_emoji_style": {
     "message": "絵文字スタイル",
@@ -572,11 +620,11 @@
     "description": "Option for Windows emoji style"
   },
   "settings_docx_hr_display": {
-    "message": "DOCX: 水平線の処理",
+    "message": "水平線の処理",
     "description": "Label for DOCX horizontal rule handling selector"
   },
   "settings_docx_hr_display_hide": {
-    "message": "非表示（空行）",
+    "message": "非表示",
     "description": "Option to hide horizontal rules in DOCX"
   },
   "settings_docx_hr_display_line": {
@@ -611,16 +659,12 @@
     "message": "4 文字",
     "description": "Option: 4 characters first-line indent"
   },
-  "settings_first_line_indent_note": {
-    "message": "本文段落の先頭行をインデントする文字数。インデントに対応したテーマでのみ有効です。",
-    "description": "Helper note for first-line indent option"
-  },
   "settings_first_line_indent_off": {
     "message": "インデントなし",
     "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
-    "message": "Frontmatter表示:",
+    "message": "Frontmatter表示",
     "description": "Label for frontmatter display mode selector"
   },
   "settings_frontmatter_hide": {
@@ -643,6 +687,18 @@
     "message": "拡張機能の設定",
     "description": "設定セクションの見出し"
   },
+  "settings_image_layout": {
+    "message": "画像の配置",
+    "description": "Label for standalone image alignment selector"
+  },
+  "settings_image_layout_center": {
+    "message": "中央",
+    "description": "Option for centered standalone images"
+  },
+  "settings_image_layout_left": {
+    "message": "左",
+    "description": "Option for left-aligned standalone images"
+  },
   "settings_interface_title": {
     "message": "インターフェース設定",
     "description": "Heading for interface settings section"
@@ -660,7 +716,7 @@
     "description": "Toast when language is changed successfully"
   },
   "settings_max_cache_label": {
-    "message": "キャッシュ最大件数:",
+    "message": "キャッシュ最大件数",
     "description": "キャッシュ項目数のラベル"
   },
   "settings_reset_btn": {
@@ -724,7 +780,7 @@
     "description": "テーマ変更時のメッセージ"
   },
   "settings_theme_label": {
-    "message": "テーマを選択：",
+    "message": "テーマを選択",
     "description": "テーマ選択のラベル"
   },
   "share": {
@@ -806,6 +862,14 @@
   "workspace_desc": {
     "message": "ローカルディレクトリを開いてサポートされているファイルを閲覧・プレビューします。",
     "description": "Workspace landing page description"
+  },
+  "workspace_history_back": {
+    "message": "戻る",
+    "description": "Tooltip for the workspace preview history back button"
+  },
+  "workspace_history_forward": {
+    "message": "進む",
+    "description": "Tooltip for the workspace preview history forward button"
   },
   "workspace_open": {
     "message": "ワークスペースを開く",

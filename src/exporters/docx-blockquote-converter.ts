@@ -94,11 +94,12 @@ function blendAlertBackground(alertColor: string, pageBg: string): string {
  */
 export function createBlockquoteConverter({ themeStyles, convertInlineNodes, convertChildNode: initialConvertChildNode }: BlockquoteConverterOptions): BlockquoteConverter {
   const blockquoteSpacing = themeStyles.blockSpacing?.blockquote;
-  
-  // Cell padding for the blockquote container.
-  // BlockquoteText paragraph spacing is now globally compensated via
-  // compensateParagraphSpacing(), so cell padding can be symmetric
-  // without adding extra line-height offset.
+
+  // Symmetric cell padding for the blockquote container. The global body
+  // baseline is an EXACT line height (derived from fontSize × lineHeight), so
+  // lines carry no auto "extra leading" and there is no half-line
+  // compensation to absorb at the container bottom: top and bottom whitespace
+  // are both just the theme's paddingVertical.
   const basePadding = blockquoteSpacing?.paddingVertical ?? 80;
   const horizontalPadding = blockquoteSpacing?.paddingHorizontal ?? 200;
   const cellPadding = {
@@ -122,20 +123,21 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
    * Convert a paragraph node inside blockquote.
    * When the blockquote is an alert, the title paragraph gets the alert colour.
    */
-  async function convertBlockquoteParagraph(child: DOCXASTNode, isFirst: boolean, alertColor?: string): Promise<Paragraph> {
+  async function convertBlockquoteParagraph(child: DOCXASTNode, alertColor?: string): Promise<Paragraph> {
     const isTitle = isAlertTitle(child);
     const inlineColor = (alertColor && isTitle) ? alertColor : undefined;
     const children = await convertInlineNodes(child.children as InlineNode[], inlineColor ? { color: inlineColor } : undefined);
-    
-    // Use the BlockquoteText style spacing as-is. It is globally compensated
-    // (before/after balanced around the line leading), so each paragraph is
-    // self-balanced and the container's symmetric cell padding keeps the
-    // top/bottom gaps equal — no per-paragraph spacing override needed.
+
+    // BlockquoteText inherits the document-wide EXACT baseline (no own line
+    // rule) and keeps only its spacing before/after, so inner paragraphs are
+    // already on the same rhythm as body text. The container's top/bottom
+    // whitespace comes entirely from the symmetric cell padding — no
+    // half-line-leading spacing tweaks are needed with an exact baseline.
     const paragraphConfig: IParagraphOptions = {
       children: children as ParagraphChild[],
       style: 'BlockquoteText',
     };
-    
+
     return new Paragraph(paragraphConfig);
   }
 
@@ -157,16 +159,14 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
 
     const cellChildren: FileChild[] = [];
 
-    let isFirst = true;
-    for (const child of node.children) {
+    for (let i = 0; i < node.children.length; i++) {
+      const child = node.children[i];
       if (child.type === 'paragraph') {
-        cellChildren.push(await convertBlockquoteParagraph(child, isFirst, alertColor));
-        isFirst = false;
+        cellChildren.push(await convertBlockquoteParagraph(child, alertColor));
       } else if (child.type === 'blockquote') {
         // Nested blockquote: recursively create another table (keep same listLevel, increment nestLevel)
         const nestedTable = await convertBlockquote(child as DOCXBlockquoteNode, listLevel, nestLevel + 1);
         cellChildren.push(nestedTable);
-        isFirst = false;
       } else if (convertChildNode) {
         // Use generic converter for other node types (code, table, etc.)
         // Pass blockquote nest level + 1 for proper right margin compensation
@@ -178,7 +178,6 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
             cellChildren.push(converted);
           }
         }
-        isFirst = false;
       }
     }
 

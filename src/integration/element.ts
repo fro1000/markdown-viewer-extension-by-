@@ -1,4 +1,6 @@
-import { createMountedViewer, type TranslateFn } from '../core/viewer/viewer-host';
+import type { TranslateFn } from '../core/viewer/viewer-host';
+import { exportViewerDocument, type ViewerExportFormat } from '../core/viewer/viewer-host';
+import { createPanelViewer } from '../core/viewer/panel-viewer';
 import { createViewerAssembler } from '../core/viewer/viewer-assembler';
 import { createPersistedStateHostBridge } from '../core/viewer/viewer-host-bridge';
 import { createViewerSession } from '../core/viewer/viewer-session';
@@ -19,10 +21,43 @@ import { createViewerIframeHostBridge } from './iframe-viewer-host';
 const OBSERVED_ATTRIBUTES = ['value', 'scroll-line', 'mode'] as const;
 const RENDER_REQUEST_EVENT = 'mv:render-request';
 const ANCHOR_REQUEST_EVENT = 'mv:scroll-to-anchor-request';
+const EXPORT_REQUEST_EVENT = 'mv:export-request';
 const RESPONSE_EVENT = 'mv:response';
 const ELEMENT_BASE_STYLE_ID = 'mdv-element-base-style';
 
 type MarkdownViewerRuntimeMode = 'inline' | 'iframe';
+
+/**
+ * Export formats accepted by the programmatic export command, mirroring the
+ * standalone preview toolbar's export menu:
+ * - 'docx' — Export to DOCX
+ * - 'epub' — Export to EPUB
+ * - 'html' — Export to HTML (single self-contained file)
+ * - 'pdf'  — Print to PDF (browser print dialog)
+ * - 'save' — Save the raw markdown file
+ */
+export type MarkdownViewerExportFormat = ViewerExportFormat;
+
+/** Accepted aliases, e.g. 'docs' for 'docx'. */
+export const MARKDOWN_VIEWER_EXPORT_FORMATS: readonly string[] = [
+  'docx',
+  'epub',
+  'html',
+  'pdf',
+  'save',
+];
+
+export interface MarkdownViewerExportOptions {
+  /** Base filename override (extension is normalized per format). */
+  filename?: string;
+  /** Document title override (used by 'html', 'epub' and 'pdf'). */
+  title?: string;
+}
+
+interface MarkdownViewerExportRequestDetail extends MarkdownViewerExportOptions {
+  requestId?: string;
+  format?: string;
+}
 
 export interface MarkdownViewerElementFactoryOptions {
   platform: PlatformAPI;
@@ -42,7 +77,22 @@ export interface MarkdownViewerElementRuntimeController {
   scrollToAnchor(anchor: string): void;
   getCurrentLine(): number | null;
   setScrollLine(line: number): void;
+  /** Run an export command (docx | epub | html | pdf | save). */
+  export(format: MarkdownViewerExportFormat, options?: MarkdownViewerExportOptions): Promise<void>;
   destroy(): void;
+}
+
+function normalizeExportFormat(format: unknown): MarkdownViewerExportFormat | null {
+  if (typeof format !== 'string') {
+    return null;
+  }
+  const lower = format.toLowerCase();
+  if (lower === 'docs') {
+    return 'docx';
+  }
+  return MARKDOWN_VIEWER_EXPORT_FORMATS.includes(lower)
+    ? (lower as MarkdownViewerExportFormat)
+    : null;
 }
 
 interface IncomingBroadcastMessage {
@@ -121,57 +171,10 @@ markdown-viewer {
   position: relative;
 }
 
-markdown-viewer > #markdown-content,
-markdown-viewer > .markdown-viewer-content {
-  box-sizing: border-box;
-  padding: 40px;
-}
-
-/* Scope shared viewer shell to the element box instead of the viewport. */
-markdown-viewer #page-shell {
-  position: relative;
-  top: auto;
-  left: auto;
-  right: auto;
-  bottom: auto;
-  min-height: 420px;
-}
-
-markdown-viewer #page-content {
-  position: relative;
-  min-height: 0;
-}
-
-markdown-viewer #table-of-contents {
-  position: absolute;
-  top: 50px;
-  left: 0;
-  height: calc(100% - 50px);
-}
-
-markdown-viewer #toc-overlay {
-  position: absolute;
-}
-
-markdown-viewer #markdown-wrapper {
-  height: 100%;
-  max-height: min(70vh, 680px);
-}
-
-@media screen and (max-width: 768px) {
-  markdown-viewer > #markdown-content,
-  markdown-viewer > .markdown-viewer-content {
-    padding: 20px;
-  }
-
-  markdown-viewer #page-shell {
-    min-height: 360px;
-  }
-
-  markdown-viewer #markdown-wrapper {
-    max-height: min(60vh, 520px);
-  }
-}
+/* Embedded layout (no toolbar, no card, TOC docked in the container) lives
+   in the shared stylesheet under .mv-embed — attachMarkdownViewerElementRuntime
+   adds that class to the element. This style only covers the element box
+   itself, which the shared CSS cannot express. */
 `;
   document.head.appendChild(style);
 }
@@ -198,6 +201,9 @@ export function attachMarkdownViewerElementRuntime(
   const { platform, renderer, translate } = options;
 
   ensureElementBaseStyle();
+  // Embedded layout (no toolbar / card) is defined once in the shared
+  // stylesheet under .mv-embed; the element just opts in.
+  target.classList.add('mv-embed');
 
   const resolveThemeId = async (themeId: string): Promise<string> => {
     if (themeId === 'auto' || themeId === 'light' || themeId === 'dark' || !themeId) {
@@ -258,6 +264,14 @@ export function attachMarkdownViewerElementRuntime(
       postToFrame(message);
     });
 
+    interface PendingIframeExport {
+      resolve: () => void;
+      reject: (error: Error) => void;
+      dispatchResponse: (ok: boolean, error?: string) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+    const pendingIframeExports = new Map<string, PendingIframeExport>();
+
     const setFrameVisible = (visible: boolean): void => {
       if (!frame) return;
       frame.style.display = visible ? 'block' : 'none';
@@ -309,6 +323,25 @@ export function attachMarkdownViewerElementRuntime(
         setFrameVisible(hasRenderableContent(currentValue));
         return;
       }
+      if (data.type === 'EXPORT_RESULT') {
+        const detail = data as { requestId?: string; ok?: boolean; error?: string };
+        const requestId = detail.requestId;
+        if (!requestId) {
+          return;
+        }
+        const pending = pendingIframeExports.get(requestId);
+        if (pending) {
+          clearTimeout(pending.timer);
+          pendingIframeExports.delete(requestId);
+          pending.dispatchResponse(Boolean(detail.ok), detail.error);
+          if (detail.ok) {
+            pending.resolve();
+          } else {
+            pending.reject(new Error(detail.error || 'Export failed'));
+          }
+        }
+        return;
+      }
       if (data.type === 'VIEWER_SCROLL_LINE_CHANGED') {
         const detail = data as { line?: unknown };
         const line = typeof detail.line === 'number' && Number.isFinite(detail.line) ? detail.line : null;
@@ -324,6 +357,67 @@ export function attachMarkdownViewerElementRuntime(
       }
     };
     window.addEventListener('message', onFrameMessage);
+
+    const runIframeExport = (
+      format: MarkdownViewerExportFormat,
+      options: MarkdownViewerExportOptions | undefined,
+      requestId: string,
+      dispatchResponse: (ok: boolean, error?: string) => void,
+    ): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pendingIframeExports.delete(requestId);
+          const error = new Error('Export timed out: the embedded viewer did not respond');
+          dispatchResponse(false, error.message);
+          reject(error);
+        }, 60000);
+        pendingIframeExports.set(requestId, {
+          resolve,
+          reject,
+          dispatchResponse,
+          timer,
+        });
+        frameHostBridge.requestExport({
+          format,
+          requestId,
+          filename: options?.filename,
+          title: options?.title,
+        });
+      });
+    };
+
+    const iframeExportDocument = (
+      format: MarkdownViewerExportFormat,
+      options?: MarkdownViewerExportOptions,
+      requestId?: string,
+    ): Promise<void> => {
+      const exportId = requestId || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const dispatchResponse = (ok: boolean, error?: string): void => {
+        if (!requestId) {
+          return;
+        }
+        dispatchBridgeResponse(target, requestId, ok, error);
+      };
+      return runIframeExport(format, options, exportId, dispatchResponse);
+    };
+
+    const onExportRequest = (event: Event): void => {
+      const detail = (event as CustomEvent<MarkdownViewerExportRequestDetail>).detail ?? {};
+      const format = normalizeExportFormat(detail.format);
+      if (!format) {
+        dispatchBridgeResponse(
+          target,
+          detail.requestId,
+          false,
+          `Unsupported export format: ${String(detail.format)}`,
+        );
+        return;
+      }
+      void iframeExportDocument(format, detail, detail.requestId).catch(() => {
+        // Failure already reported via dispatchResponse above.
+      });
+    };
+    target.addEventListener(EXPORT_REQUEST_EVENT, onExportRequest as EventListener);
 
     const attributeObserver = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
@@ -383,9 +477,18 @@ export function attachMarkdownViewerElementRuntime(
           frameHostBridge.syncHostNavigation({ line });
         }
       },
+      export(format: MarkdownViewerExportFormat, options?: MarkdownViewerExportOptions): Promise<void> {
+        return iframeExportDocument(format, options);
+      },
       destroy(): void {
         window.removeEventListener('message', onFrameMessage);
         attributeObserver.disconnect();
+        target.removeEventListener(EXPORT_REQUEST_EVENT, onExportRequest as EventListener);
+        for (const pending of pendingIframeExports.values()) {
+          clearTimeout(pending.timer);
+          pending.reject(new Error('markdown-viewer element destroyed before export completed'));
+        }
+        pendingIframeExports.clear();
       },
     };
   }
@@ -395,8 +498,12 @@ export function attachMarkdownViewerElementRuntime(
     container.className = 'markdown-viewer-content';
     target.appendChild(container);
   }
-  if (container.id === 'markdown-content') {
-    container.removeAttribute('id');
+  // The content root KEEPS id="markdown-content" so every shared content rule
+  // (#markdown-content ...) applies in inline mode too. The id lives inside
+  // the element box, and viewer code addresses the container by reference
+  // (not by document-wide id lookup), so it cannot collide with the host page.
+  if (!container.id) {
+    container.id = 'markdown-content';
   }
 
   if (!container) {
@@ -434,12 +541,15 @@ export function attachMarkdownViewerElementRuntime(
 
   };
 
-  const mountedViewer = createMountedViewer({
+  const panelViewer = createPanelViewer({
     container,
     scrollContainer: scrollContainer ?? undefined,
     platform,
     renderer,
     translate,
+    // The element manages its own scroll-line attribute; no fileState
+    // persistence under a shared key (multiple elements on one page).
+    persistScroll: false,
     onHeadings: () => {
       void generateTOC().then(() => {
         updateActiveTocItem();
@@ -524,32 +634,67 @@ export function attachMarkdownViewerElementRuntime(
     overlayDiv?.classList.add('hidden');
   };
 
+  // Style-gated first reveal. The filtered content CSS (#mv-content-styles,
+  // injected asynchronously by inject-element-styles) and the theme CSS
+  // (#theme-dynamic-style, injected by loadAndApplyTheme) both arrive AFTER
+  // the runtime attaches, so a first render that starts immediately can paint
+  // before either lands — a visible flash of unstyled content that then jumps
+  // to the themed look (the takeover/embed surfaces avoid this via the preload
+  // opacity gate + theme-first init; the inline element needs its own gate).
+  // Bounded: if the styles never arrive (e.g. a non-extension host where the
+  // stylesheet fetch failed), reveal anyway after the deadline so the page
+  // never stays blank.
+  let stylingGate: Promise<void> | null = null;
+  const waitForElementStyling = (): Promise<void> => {
+    if (!stylingGate) {
+      stylingGate = (async () => {
+        const deadline = Date.now() + 1500;
+        const ready = (): boolean =>
+          Boolean(document.getElementById('mv-content-styles'))
+          && Boolean(document.getElementById('theme-dynamic-style'));
+        while (!ready() && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 16));
+        }
+      })();
+    }
+    return stylingGate;
+  };
+
   const viewerSurface = createViewerSurfacePort({
     render: async (effect) => {
       const shouldShow = hasRenderableContent(effect.renderModel.markdown);
+      if (shouldShow) {
+        // Do not reveal (or render into the live DOM) until the styling
+        // resources are present — the first paint must be themed, not a flash
+        // of unstyled defaults that then jumps to the themed look.
+        await waitForElementStyling();
+      }
       setMountedReaderVisible(shouldShow);
-      await mountedViewer.render(effect.renderModel.markdown, {
-        fileChanged: !effect.preserveViewport,
-        forceRender: false,
-        targetLine: effect.targetLine,
-      });
+      // The shared panel document state machine: a viewport-preserving
+      // update vs a fresh document (same semantics as editor panels).
+      const update = { scrollLine: effect.targetLine } as const;
+      if (effect.preserveViewport) {
+        await panelViewer.updateContent(effect.renderModel.markdown, 'document.md', update);
+      } else {
+        await panelViewer.openDocument(effect.renderModel.markdown, 'document.md', update);
+      }
       await generateTOC();
       applyUiAttributes();
       updateActiveTocItem();
     },
     applyTheme: async (themeId) => {
       const resolvedThemeId = await resolveThemeId(themeId);
-      await mountedViewer.switchTheme(resolvedThemeId);
+      await panelViewer.switchTheme(resolvedThemeId);
     },
     applyPresentation: (effect) => {
       applyResolvedModePresentation(effect.resolvedMode, effect.tocVisible);
     },
-    readCurrentLine: () => mountedViewer.getCurrentLine(),
+    readCurrentLine: () => panelViewer.getCurrentLine(),
     scrollToLine: (line) => {
-      mountedViewer.setScrollLine(line);
+      panelViewer.setScrollLine(line);
     },
     scrollToAnchor: (anchor) => {
-      mountedViewer.scrollToAnchor(anchor);
+      panelViewer.scrollToAnchor(anchor);
     },
   });
 
@@ -599,6 +744,18 @@ export function attachMarkdownViewerElementRuntime(
 
   const switchTheme = async (themeId: string): Promise<void> => {
     const resolvedThemeId = await resolveThemeId(themeId);
+    // No-op when the resolved theme is already active AND its CSS is actually
+    // in the DOM: skip the full apply+rerender cycle. The attach-time
+    // switchTheme('') would otherwise re-render (forceRender) concurrently
+    // with the initial render and race it — the aborted initial render could
+    // still append its footnote section into the re-render's container (see
+    // viewer-controller abort guards). The CSS-tag check keeps the guard
+    // honest: if the styles were somehow removed, re-apply instead of leaving
+    // the page unstyled.
+    if (themeManager.getCurrentTheme()?.id === resolvedThemeId
+      && document.getElementById('theme-dynamic-style')) {
+      return;
+    }
     await viewerAssembler.setTheme(resolvedThemeId);
   };
 
@@ -609,6 +766,60 @@ export function attachMarkdownViewerElementRuntime(
   const setScrollLine = (line: number): void => {
     void viewerAssembler.requestTargetLine(line);
   };
+
+  const runInlineExport = async (
+    format: MarkdownViewerExportFormat,
+    options?: MarkdownViewerExportOptions,
+  ): Promise<void> => {
+    const filename = options?.filename || target.id || 'document';
+    await exportViewerDocument({
+      format,
+      markdown: currentValue,
+      filename,
+      title: options?.title || filename,
+      container,
+      renderer,
+      platform,
+    });
+  };
+
+  const inlineExportDocument = (
+    format: MarkdownViewerExportFormat,
+    options?: MarkdownViewerExportOptions,
+    requestId?: string,
+  ): Promise<void> => {
+    return runInlineExport(format, options).then(
+      () => {
+        if (requestId) {
+          dispatchBridgeResponse(target, requestId, true);
+        }
+      },
+      (error: unknown) => {
+        if (requestId) {
+          dispatchBridgeResponse(target, requestId, false, error);
+        }
+        throw error;
+      },
+    );
+  };
+
+  const onExportRequest = (event: Event): void => {
+    const detail = (event as CustomEvent<MarkdownViewerExportRequestDetail>).detail ?? {};
+    const format = normalizeExportFormat(detail.format);
+    if (!format) {
+      dispatchBridgeResponse(
+        target,
+        detail.requestId,
+        false,
+        `Unsupported export format: ${String(detail.format)}`,
+      );
+      return;
+    }
+    void inlineExportDocument(format, detail, detail.requestId).catch(() => {
+      // Failure already reported via dispatchBridgeResponse above.
+    });
+  };
+  target.addEventListener(EXPORT_REQUEST_EVENT, onExportRequest as EventListener);
 
   const toggleTocBtn = target.querySelector('#toggle-toc-btn') as HTMLButtonElement | null;
   if (toggleTocBtn) {
@@ -695,14 +906,18 @@ export function attachMarkdownViewerElementRuntime(
     switchTheme,
     scrollToAnchor,
     getCurrentLine(): number | null {
-      return viewerAssembler.getSnapshot().currentLine ?? mountedViewer.getCurrentLine();
+      return viewerAssembler.getSnapshot().currentLine ?? panelViewer.getCurrentLine();
     },
     setScrollLine,
+    export(format: MarkdownViewerExportFormat, options?: MarkdownViewerExportOptions): Promise<void> {
+      return inlineExportDocument(format, options);
+    },
     destroy(): void {
       attributeObserver.disconnect();
       target.removeEventListener(RENDER_REQUEST_EVENT, onRenderRequest as EventListener);
       target.removeEventListener(ANCHOR_REQUEST_EVENT, onAnchorRequest as EventListener);
-      mountedViewer.destroy();
+      target.removeEventListener(EXPORT_REQUEST_EVENT, onExportRequest as EventListener);
+      panelViewer.destroy();
     },
   };
 }
@@ -803,6 +1018,23 @@ export function createMarkdownViewerElementClass(options: MarkdownViewerElementF
 
     scrollToAnchor(anchor: string): void {
       this.runtimeController?.scrollToAnchor(anchor);
+    }
+
+    /**
+     * Run an export command, mirroring the standalone preview toolbar's
+     * export menu: 'docx' | 'epub' | 'html' | 'pdf' | 'save' ('docs' is an
+     * alias for 'docx'). Resolves when the export completes; rejects on
+     * failure.
+     */
+    async export(
+      format: MarkdownViewerExportFormat | 'docs',
+      options?: MarkdownViewerExportOptions,
+    ): Promise<void> {
+      const normalized = normalizeExportFormat(format);
+      if (!normalized) {
+        throw new Error(`Unsupported export format: ${String(format)}`);
+      }
+      await this.runtimeController?.export(normalized, options);
     }
   };
 }

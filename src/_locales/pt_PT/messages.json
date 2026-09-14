@@ -19,6 +19,30 @@
     "message": "Erro desconhecido",
     "description": "Fallback when error message missing"
   },
+  "book_export_docx": {
+    "message": "Exportar o livro para DOCX",
+    "description": "Menu item: export the whole GitBook book as a single DOCX"
+  },
+  "book_export_epub": {
+    "message": "Exportar o livro para EPUB",
+    "description": "Menu item: export the whole GitBook book as a single EPUB ebook"
+  },
+  "book_export_failed": {
+    "message": "Falha ao exportar o livro: {0}",
+    "description": "Alert shown when whole-book export fails, with error detail"
+  },
+  "book_export_pdf": {
+    "message": "Exportar o livro para PDF",
+    "description": "Menu item: export the whole GitBook book as a PDF via print"
+  },
+  "book_export_skipped_pages": {
+    "message": "{0} página(s) ignorada(s)",
+    "description": "Alert shown after export when some pages could not be fetched"
+  },
+  "book_export_title": {
+    "message": "Exportar o livro",
+    "description": "Tooltip for the whole-book export dropdown button in the SUMMARY panel header"
+  },
   "cache_clear": {
     "message": "Limpar cache",
     "description": "Clear cache button"
@@ -175,6 +199,10 @@
     "message": "Copy as PNG",
     "description": "Context menu item for copying a diagram as PNG"
   },
+  "copy_table": {
+    "message": "Copiar tabela",
+    "description": "Context menu item for copying a rendered table as spreadsheet cells"
+  },
   "delete": {
     "message": "Eliminar",
     "description": "Delete button text"
@@ -203,6 +231,10 @@
     "message": "Exportar para DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_epub": {
+    "message": "Exportar para EPUB",
+    "description": "Export menu item for exporting the current document to EPUB"
+  },
   "export_menu_export_html": {
     "message": "Exportar para HTML",
     "description": "Export menu item for exporting to HTML"
@@ -220,7 +252,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown para Word perfeito — Mermaid, PlantUML, Vega, drawio, infografia, Graphviz, LaTeX, realce de código, processamento local.",
+    "message": "Pré-visualize Markdown localmente e exporte documentos Word com diagramas, fórmulas editáveis e realce de código.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -511,6 +543,10 @@
     "message": "Guardar imagem como…",
     "description": "Context menu item for saving an image"
   },
+  "save_table_as_xlsx": {
+    "message": "Guardar como Excel (.xlsx)",
+    "description": "Context menu item for saving a rendered table as an Excel (.xlsx) file"
+  },
   "search_case_sensitive": {
     "message": "Diferenciar maiúsculas",
     "description": "Toggle case sensitive search"
@@ -536,7 +572,7 @@
     "description": "Label for auto refresh checkbox"
   },
   "settings_auto_refresh_interval": {
-    "message": "Intervalo de atualização:",
+    "message": "Intervalo de atualização",
     "description": "Label for refresh interval selector"
   },
   "settings_auto_refresh_note": {
@@ -550,6 +586,18 @@
   "settings_cache_title": {
     "message": "Cache",
     "description": "Title for cache settings section"
+  },
+  "settings_diagram_layout": {
+    "message": "Disposição de diagramas",
+    "description": "Label for diagram alignment selector"
+  },
+  "settings_diagram_layout_center": {
+    "message": "Centro",
+    "description": "Option for centered diagrams"
+  },
+  "settings_diagram_layout_left": {
+    "message": "Esquerda",
+    "description": "Option for left-aligned diagrams"
   },
   "settings_docx_emoji_style": {
     "message": "Estilo de emoji",
@@ -572,11 +620,11 @@
     "description": "Option for Windows emoji style"
   },
   "settings_docx_hr_display": {
-    "message": "DOCX: Tratamento de linhas horizontais",
+    "message": "Tratamento de linhas horizontais",
     "description": "Label for DOCX horizontal rule handling selector"
   },
   "settings_docx_hr_display_hide": {
-    "message": "Ocultar (linha vazia)",
+    "message": "Ocultar",
     "description": "Option to hide horizontal rules in DOCX"
   },
   "settings_docx_hr_display_line": {
@@ -611,16 +659,12 @@
     "message": "4 carateres",
     "description": "Option: 4 characters first-line indent"
   },
-  "settings_first_line_indent_note": {
-    "message": "Número de caracteres para avançar a primeira linha dos parágrafos de texto. Só tem efeito em temas que suportam avanço.",
-    "description": "Helper note for first-line indent option"
-  },
   "settings_first_line_indent_off": {
     "message": "Sem avanço",
     "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
-    "message": "Exibição do Frontmatter:",
+    "message": "Exibição do Frontmatter",
     "description": "Label for frontmatter display mode selector"
   },
   "settings_frontmatter_hide": {
@@ -643,6 +687,18 @@
     "message": "Definições da extensão",
     "description": "Título da secção de definições"
   },
+  "settings_image_layout": {
+    "message": "Disposição de imagens",
+    "description": "Label for standalone image alignment selector"
+  },
+  "settings_image_layout_center": {
+    "message": "Centro",
+    "description": "Option for centered standalone images"
+  },
+  "settings_image_layout_left": {
+    "message": "Esquerda",
+    "description": "Option for left-aligned standalone images"
+  },
   "settings_interface_title": {
     "message": "Definições de interface",
     "description": "Heading for interface settings section"
@@ -660,7 +716,7 @@
     "description": "Toast when language is changed successfully"
   },
   "settings_max_cache_label": {
-    "message": "Máximo de itens em cache:",
+    "message": "Máximo de itens em cache",
     "description": "Label for max cache input"
   },
   "settings_reset_btn": {
@@ -724,7 +780,7 @@
     "description": "Message shown when theme is changed"
   },
   "settings_theme_label": {
-    "message": "Selecionar Tema:",
+    "message": "Selecionar Tema",
     "description": "Label for theme selector"
   },
   "share": {
@@ -806,6 +862,14 @@
   "workspace_desc": {
     "message": "Abra um diretório local para navegar e pré-visualizar ficheiros suportados.",
     "description": "Workspace landing page description"
+  },
+  "workspace_history_back": {
+    "message": "Voltar",
+    "description": "Tooltip for the workspace preview history back button"
+  },
+  "workspace_history_forward": {
+    "message": "Avançar",
+    "description": "Tooltip for the workspace preview history forward button"
   },
   "workspace_open": {
     "message": "Abrir área de trabalho",

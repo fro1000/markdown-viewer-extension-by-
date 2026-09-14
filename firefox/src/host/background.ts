@@ -608,9 +608,14 @@ initGlobalCacheStorage();
 // Handle dynamic content script injection.
 // `fromContextMenu` is true when triggered by the right-click menu so we
 async function handleElementRuntimeInjection(tabId: number): Promise<void> {
-  // Element runtime renders into an iframe, so the host page does not need
-  // ui/styles.css. Injecting it would set global side effects (e.g.
-  // body{overflow:hidden}) on unrelated websites.
+  // Inline element mode renders into the host page DOM, so it needs the
+  // shared content styles — injected as a FILTERED copy (content selectors
+  // only, no global html/body rules) so the host page itself is unaffected.
+  // iframe mode does not need this: viewer-embed.html loads ui/styles.css.
+  await browser.scripting.executeScript({
+    target: { tabId },
+    files: ['/core/inject-element-styles.js'],
+  });
   await browser.scripting.executeScript({
     target: { tabId },
     files: ['/core/element-runtime.js'],
@@ -633,21 +638,18 @@ async function handleContentScriptInjection(tabId: number, fromContextMenu = fal
         files: ['/core/html-to-markdown.js']
       });
     }
+    // Inject the content stylesheet as a real <style> element. scripting
+    // insertCSS (USER origin) never appears in document.styleSheets, so the
+    // export CSS collectors would miss every structural content rule and
+    // exported HTML/EPUB would lose the shared stylesheet.
+    await browser.scripting.executeScript({
+      target: { tabId },
+      files: ['/core/inject-styles.js']
+    });
     await browser.scripting.executeScript({
       target: { tabId },
       files: ['/core/main.js']
     });
-    
-    // CSS injection via scripting API
-    try {
-      await browser.scripting.insertCSS({
-        target: { tabId },
-        files: ['/ui/styles.css'],
-        origin: 'USER'
-      });
-    } catch (cssError) {
-      // CSS injection failed, will rely on JS to inject styles
-    }
   } catch (error) {
     console.error('[Firefox Background] Scripting injection failed:', (error as Error).message);
     throw error;

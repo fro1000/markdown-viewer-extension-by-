@@ -59,8 +59,19 @@ type RuntimeMessageListener = (
   sendResponse: (response?: unknown) => void
 ) => void | boolean | Promise<unknown>;
 
+type StorageChangeLike = {
+  oldValue?: unknown;
+  newValue?: unknown;
+};
+
+type StorageOnChangedListener = (
+  changes: Record<string, StorageChangeLike>,
+  areaName: string
+) => void;
+
 type WebExtensionApiLike = {
   runtime: {
+    id?: string;
     sendMessage: (message: unknown) => Promise<unknown>;
     getURL: (path: string) => string;
     onMessage: {
@@ -72,6 +83,10 @@ type WebExtensionApiLike = {
     local: {
       get: (keys: string[] | string | Record<string, unknown>) => Promise<Record<string, unknown>>;
     };
+    onChanged?: {
+      addListener: (listener: StorageOnChangedListener) => void;
+      removeListener?: (listener: StorageOnChangedListener) => void;
+    };
   };
   i18n?: {
     getUILanguage: () => string;
@@ -82,6 +97,13 @@ type WebExtensionApiLike = {
   };
   downloads?: {
     download: (options: { url: string; filename?: string; saveAs?: boolean }) => Promise<number | string | undefined>;
+  };
+  extension?: {
+    /** Firefox 153+/Chrome: true when file:// access is granted to this extension. */
+    isAllowedFileSchemeAccess?: () => Promise<boolean>;
+  };
+  tabs?: {
+    create: (options: { url: string }) => Promise<unknown>;
   };
 };
 

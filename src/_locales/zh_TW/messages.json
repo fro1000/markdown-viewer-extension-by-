@@ -19,6 +19,30 @@
     "message": "未知錯誤",
     "description": "錯誤信息缺失時的提示"
   },
+  "book_export_docx": {
+    "message": "匯出整本書為 DOCX",
+    "description": "Menu item: export the whole GitBook book as a single DOCX"
+  },
+  "book_export_epub": {
+    "message": "匯出整本書為 EPUB",
+    "description": "Menu item: export the whole GitBook book as a single EPUB ebook"
+  },
+  "book_export_failed": {
+    "message": "整本書匯出失敗：{0}",
+    "description": "Alert shown when whole-book export fails, with error detail"
+  },
+  "book_export_pdf": {
+    "message": "匯出整本書為 PDF",
+    "description": "Menu item: export the whole GitBook book as a PDF via print"
+  },
+  "book_export_skipped_pages": {
+    "message": "有 {0} 個頁面被略過，未匯出",
+    "description": "Alert shown after export when some pages could not be fetched"
+  },
+  "book_export_title": {
+    "message": "匯出整本書",
+    "description": "Tooltip for the whole-book export dropdown button in the SUMMARY panel header"
+  },
   "cache_clear": {
     "message": "清空快取",
     "description": "清空按鈕"
@@ -175,6 +199,10 @@
     "message": "複製為 PNG",
     "description": "Context menu item for copying a diagram as PNG"
   },
+  "copy_table": {
+    "message": "複製表格",
+    "description": "Context menu item for copying a rendered table as spreadsheet cells"
+  },
   "delete": {
     "message": "刪除",
     "description": "Delete button text"
@@ -203,6 +231,10 @@
     "message": "匯出為 DOCX",
     "description": "匯出選單中的 DOCX 項"
   },
+  "export_menu_export_epub": {
+    "message": "匯出為 EPUB",
+    "description": "Export menu item for exporting the current document to EPUB"
+  },
   "export_menu_export_html": {
     "message": "匯出為 HTML",
     "description": "Export menu item for exporting to HTML"
@@ -220,7 +252,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown 匯出完美 Word — Mermaid、PlantUML、Vega、drawio、canvas、資訊圖、Graphviz、LaTeX 公式可編輯，程式碼高亮，本地處理.",
+    "message": "本地預覽 Markdown，並匯出包含圖表、可編輯公式與程式碼高亮的精緻 Word 文件。",
     "description": "擴充功能簡介"
   },
   "extensionName": {
@@ -511,6 +543,10 @@
     "message": "圖片另存為…",
     "description": "Context menu item for saving an image"
   },
+  "save_table_as_xlsx": {
+    "message": "另存為 Excel (.xlsx)",
+    "description": "Context menu item for saving a rendered table as an Excel (.xlsx) file"
+  },
   "search_case_sensitive": {
     "message": "區分大小寫",
     "description": "Match case sensitivity toggle tooltip"
@@ -536,7 +572,7 @@
     "description": "Label for auto refresh checkbox"
   },
   "settings_auto_refresh_interval": {
-    "message": "重新整理間隔:",
+    "message": "重新整理間隔",
     "description": "Label for refresh interval selector"
   },
   "settings_auto_refresh_note": {
@@ -550,6 +586,18 @@
   "settings_cache_title": {
     "message": "快取",
     "description": "Title for cache settings section"
+  },
+  "settings_diagram_layout": {
+    "message": "圖表對齊",
+    "description": "Label for diagram alignment selector"
+  },
+  "settings_diagram_layout_center": {
+    "message": "置中",
+    "description": "Option for centered diagrams"
+  },
+  "settings_diagram_layout_left": {
+    "message": "靠左",
+    "description": "Option for left-aligned diagrams"
   },
   "settings_docx_emoji_style": {
     "message": "表情符號樣式",
@@ -572,11 +620,11 @@
     "description": "Option for Windows emoji style"
   },
   "settings_docx_hr_display": {
-    "message": "DOCX：分隔線處理",
+    "message": "分隔線處理",
     "description": "Label for DOCX horizontal rule handling selector"
   },
   "settings_docx_hr_display_hide": {
-    "message": "隱藏（空行）",
+    "message": "隱藏",
     "description": "Option to hide horizontal rules in DOCX"
   },
   "settings_docx_hr_display_line": {
@@ -611,16 +659,12 @@
     "message": "4 字元",
     "description": "Option: 4 characters first-line indent"
   },
-  "settings_first_line_indent_note": {
-    "message": "正文段落首行縮排字元數。僅對支援縮排的主題生效。",
-    "description": "Helper note for first-line indent option"
-  },
   "settings_first_line_indent_off": {
     "message": "不縮排",
     "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
-    "message": "Frontmatter 顯示:",
+    "message": "Frontmatter 顯示",
     "description": "Label for frontmatter display mode selector"
   },
   "settings_frontmatter_hide": {
@@ -643,6 +687,18 @@
     "message": "擴充功能設定",
     "description": "設定區標題"
   },
+  "settings_image_layout": {
+    "message": "圖片對齊",
+    "description": "Label for standalone image alignment selector"
+  },
+  "settings_image_layout_center": {
+    "message": "置中",
+    "description": "Option for centered standalone images"
+  },
+  "settings_image_layout_left": {
+    "message": "靠左",
+    "description": "Option for left-aligned standalone images"
+  },
   "settings_interface_title": {
     "message": "介面設定",
     "description": "介面設定區標題"
@@ -660,7 +716,7 @@
     "description": "語言變更成功提示"
   },
   "settings_max_cache_label": {
-    "message": "最大快取項目數:",
+    "message": "最大快取項目數",
     "description": "最大快取標籤"
   },
   "settings_reset_btn": {
@@ -724,7 +780,7 @@
     "description": "主題切換成功時顯示的訊息"
   },
   "settings_theme_label": {
-    "message": "選擇主題：",
+    "message": "選擇主題",
     "description": "主題選擇器標籤"
   },
   "share": {
@@ -806,6 +862,14 @@
   "workspace_desc": {
     "message": "開啟本機目錄，或將檔案、資料夾拖放到此處進行瀏覽和預覽。",
     "description": "Workspace landing page description"
+  },
+  "workspace_history_back": {
+    "message": "上一頁",
+    "description": "Tooltip for the workspace preview history back button"
+  },
+  "workspace_history_forward": {
+    "message": "下一頁",
+    "description": "Tooltip for the workspace preview history forward button"
   },
   "workspace_open": {
     "message": "開啟工作區",

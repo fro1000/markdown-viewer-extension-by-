@@ -19,6 +19,30 @@
     "message": "Bilinmeyen hata",
     "description": "Fallback when error message missing"
   },
+  "book_export_docx": {
+    "message": "Kitabı DOCX olarak dışa aktar",
+    "description": "Menu item: export the whole GitBook book as a single DOCX"
+  },
+  "book_export_epub": {
+    "message": "Kitabı EPUB olarak dışa aktar",
+    "description": "Menu item: export the whole GitBook book as a single EPUB ebook"
+  },
+  "book_export_failed": {
+    "message": "Kitap dışa aktarılamadı: {0}",
+    "description": "Alert shown when whole-book export fails, with error detail"
+  },
+  "book_export_pdf": {
+    "message": "Kitabı PDF olarak dışa aktar",
+    "description": "Menu item: export the whole GitBook book as a PDF via print"
+  },
+  "book_export_skipped_pages": {
+    "message": "{0} sayfa atlandı",
+    "description": "Alert shown after export when some pages could not be fetched"
+  },
+  "book_export_title": {
+    "message": "Kitabı dışa aktar",
+    "description": "Tooltip for the whole-book export dropdown button in the SUMMARY panel header"
+  },
   "cache_clear": {
     "message": "Önbelleği temizle",
     "description": "Clear cache button"
@@ -175,6 +199,10 @@
     "message": "Copy as PNG",
     "description": "Context menu item for copying a diagram as PNG"
   },
+  "copy_table": {
+    "message": "Tabloyu kopyala",
+    "description": "Context menu item for copying a rendered table as spreadsheet cells"
+  },
   "delete": {
     "message": "Delete",
     "description": "Delete button text"
@@ -203,6 +231,10 @@
     "message": "DOCX olarak dışa aktar",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_epub": {
+    "message": "EPUB olarak dışa aktar",
+    "description": "Export menu item for exporting the current document to EPUB"
+  },
   "export_menu_export_html": {
     "message": "HTML olarak dışa aktar",
     "description": "Export menu item for exporting to HTML"
@@ -220,7 +252,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown'dan mükemmel Word'e — Mermaid, PlantUML, Vega, drawio, infografik, Graphviz, LaTeX, kod vurgulama, yerel işleme.",
+    "message": "Markdown dosyalarını yerel olarak önizleyin; diyagram, düzenlenebilir formül ve kod vurgulu Word belgeleri dışa aktarın.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -511,6 +543,10 @@
     "message": "Resmi farklı kaydet…",
     "description": "Context menu item for saving an image"
   },
+  "save_table_as_xlsx": {
+    "message": "Excel olarak kaydet (.xlsx)",
+    "description": "Context menu item for saving a rendered table as an Excel (.xlsx) file"
+  },
   "search_case_sensitive": {
     "message": "Büyük/küçük harf duyarlı",
     "description": "Toggle case sensitive search"
@@ -536,7 +572,7 @@
     "description": "Label for auto refresh checkbox"
   },
   "settings_auto_refresh_interval": {
-    "message": "Yenileme aralığı:",
+    "message": "Yenileme aralığı",
     "description": "Label for refresh interval selector"
   },
   "settings_auto_refresh_note": {
@@ -550,6 +586,18 @@
   "settings_cache_title": {
     "message": "Önbellek",
     "description": "Title for cache settings section"
+  },
+  "settings_diagram_layout": {
+    "message": "Diyagram düzeni",
+    "description": "Label for diagram alignment selector"
+  },
+  "settings_diagram_layout_center": {
+    "message": "Orta",
+    "description": "Option for centered diagrams"
+  },
+  "settings_diagram_layout_left": {
+    "message": "Sol",
+    "description": "Option for left-aligned diagrams"
   },
   "settings_docx_emoji_style": {
     "message": "Emoji Stili",
@@ -572,11 +620,11 @@
     "description": "Option for Windows emoji style"
   },
   "settings_docx_hr_display": {
-    "message": "DOCX: Yatay çizgi işleme",
+    "message": "Yatay çizgi işleme",
     "description": "Label for DOCX horizontal rule handling selector"
   },
   "settings_docx_hr_display_hide": {
-    "message": "Gizle (boş satır)",
+    "message": "Gizle",
     "description": "Option to hide horizontal rules in DOCX"
   },
   "settings_docx_hr_display_line": {
@@ -611,16 +659,12 @@
     "message": "4 karakter",
     "description": "Option: 4 characters first-line indent"
   },
-  "settings_first_line_indent_note": {
-    "message": "Gövde paragraflarının ilk satırını girintilemek için karakter sayısı. Yalnızca girintiyi destekleyen temalarda etkili olur.",
-    "description": "Helper note for first-line indent option"
-  },
   "settings_first_line_indent_off": {
     "message": "Girinti yok",
     "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
-    "message": "Frontmatter görüntüleme:",
+    "message": "Frontmatter görüntüleme",
     "description": "Label for frontmatter display mode selector"
   },
   "settings_frontmatter_hide": {
@@ -643,6 +687,18 @@
     "message": "Uzantı ayarları",
     "description": "Heading for settings section"
   },
+  "settings_image_layout": {
+    "message": "Görsel düzeni",
+    "description": "Label for standalone image alignment selector"
+  },
+  "settings_image_layout_center": {
+    "message": "Orta",
+    "description": "Option for centered standalone images"
+  },
+  "settings_image_layout_left": {
+    "message": "Sol",
+    "description": "Option for left-aligned standalone images"
+  },
   "settings_interface_title": {
     "message": "Arayüz ayarları",
     "description": "Heading for interface settings section"
@@ -660,7 +716,7 @@
     "description": "Toast when language is changed successfully"
   },
   "settings_max_cache_label": {
-    "message": "Maksimum önbellekteki öğe sayısı:",
+    "message": "Maksimum önbellekteki öğe sayısı",
     "description": "Label for max cache input"
   },
   "settings_reset_btn": {
@@ -724,7 +780,7 @@
     "description": "Message shown when theme is changed"
   },
   "settings_theme_label": {
-    "message": "Tema Seç:",
+    "message": "Tema Seç",
     "description": "Label for theme selector"
   },
   "share": {
@@ -806,6 +862,14 @@
   "workspace_desc": {
     "message": "Desteklenen dosyaları göz atmak ve önizlemek için yerel bir dizin açın.",
     "description": "Workspace landing page description"
+  },
+  "workspace_history_back": {
+    "message": "Geri",
+    "description": "Tooltip for the workspace preview history back button"
+  },
+  "workspace_history_forward": {
+    "message": "İleri",
+    "description": "Tooltip for the workspace preview history forward button"
   },
   "workspace_open": {
     "message": "Çalışma alanını aç",

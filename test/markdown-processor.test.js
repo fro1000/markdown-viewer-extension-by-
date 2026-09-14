@@ -2,7 +2,10 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import * as xml from 'xml';
 
-// Setup fibjs DOM as global document for DOM-related tests
+// Setup fibjs DOM as global document for DOM-related tests. This file owns the
+// global document for the whole fibjs test/all.test.js run — sibling files in
+// that aggregate must not read/replace `document` (html-plugin does, which is
+// why it lives in the node `npm test` list instead).
 const htmlDoc = new xml.Document('text/html');
 globalThis.document = htmlDoc;
 
@@ -196,7 +199,14 @@ describe('markdown-processor', () => {
       assert.ok(output.includes('Title'), 'Should highlight markdown heading content');
       assert.ok(output.includes('item with'), 'Should highlight markdown list content');
       assert.ok(output.includes('target.md'), 'Should highlight markdown links');
-      assert.ok(output.includes('```js'), 'Should preserve fenced code info string content');
+      // Shiki tokenizes the fence markers and the info string separately, so
+      // "```js" is emitted as two adjacent spans (`<span>```</span><span>js</span>`);
+      // assert the sequence allowing an intervening token span instead of a
+      // contiguous substring (fails whenever Shiki actually renders).
+      assert.ok(
+        /```(?:<\/span><span[^>]*>)?js/.test(output),
+        'Should preserve fenced code info string content',
+      );
       assert.ok(output.includes('# not heading'), 'Should preserve fenced code content');
       assert.ok(!output.includes('hljs-bullet'), 'Should no longer use the fallback highlight.js markdown tokenizer');
     });

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dagreShimPlugin } from '../scripts/dagre-shim-plugin.js';
+import { nodeShimPlugin } from '../scripts/node-shim-plugin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -91,6 +92,8 @@ export const createBuildConfig = (overrides = {}) => {
       'core/runtime-bridge': 'chrome/src/webview/runtime-bridge.ts',
       'core/main': 'chrome/src/webview/main.ts',
       'core/html-to-markdown': 'chrome/src/webview/html-to-markdown.ts',
+      'core/inject-styles': 'chrome/src/webview/inject-styles.ts',
+      'core/inject-element-styles': 'chrome/src/webview/inject-element-styles.ts',
       'core/background': 'chrome/src/host/background.ts',
       'core/drawio2svg': 'src/renderers/entries/drawio2svg-global.ts',
       'core/draw-uml': 'src/renderers/entries/draw-uml-global.ts',
@@ -128,6 +131,7 @@ export const createBuildConfig = (overrides = {}) => {
     minify: !options.development,
     sourcemap: options.development,
     plugins: [
+      nodeShimPlugin,
       dagreShimPlugin,
       // Redirect @markdown-viewer/drawio2svg and draw-uml imports to shims
       // ONLY for files under src/renderers/ — these run in the offscreen render
@@ -165,6 +169,7 @@ export const createBuildConfig = (overrides = {}) => {
                 { src: 'chrome/src/workspace/workspace.html', dest: `${options.outdir}/ui/workspace/workspace.html` },
                 { src: 'chrome/src/workspace/workspace.css', dest: `${options.outdir}/ui/workspace/workspace.css` },
                 { src: 'chrome/src/workspace/viewer-embed.html', dest: `${options.outdir}/ui/workspace/viewer-embed.html` },
+                { src: 'chrome/src/workspace/html-preview-sandbox.html', dest: `${options.outdir}/ui/workspace/html-preview-sandbox.html` },
                 { src: 'chrome/src/workspace/dark-preload.js', dest: `${options.outdir}/ui/workspace/dark-preload.js` },
                 { src: 'chrome/src/webview/offscreen-render.html', dest: `${options.outdir}/ui/offscreen-render.html` }
               ];
